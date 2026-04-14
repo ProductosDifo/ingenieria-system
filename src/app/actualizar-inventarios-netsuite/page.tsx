@@ -175,37 +175,49 @@ export default function ActualizarInventariosNetSuitePage() {
         return;
       }
 
-      const filasParseadas: FilaInventarioNetSuite[] = json.map((filaOriginal) => {
-        const entradaNormalizada = Object.fromEntries(
-          Object.entries(filaOriginal).map(([key, value]) => [
-            key.toLowerCase().trim(),
-            value,
-          ])
-        );
+      const colIdInternoKey = colIdInterno!;
+const colNombreKey = colNombre!;
+const colDescripcionKey = colDescripcion!;
+const colTipoKey = colTipo!;
+const colCodigoBarrasKey = colCodigoBarras!;
+const colUbicacionKey = colUbicacion!;
+const colExistenciaKey = colExistencia!;
+const colCostoUnitarioKey = colCostoUnitario!;
+const colValorFisicoKey = colValorFisico!;
 
-        const existencia = convertirEntero(entradaNormalizada[colExistencia]);
-        const costoUnitario = convertirNumero(
-          entradaNormalizada[colCostoUnitario]
-        );
-        const valorFisicoArchivo = convertirNumero(
-          entradaNormalizada[colValorFisico]
-        );
 
-        return {
-          idInterno: convertirEntero(entradaNormalizada[colIdInterno]),
-          nombre: normalizarTexto(entradaNormalizada[colNombre]),
-          descripcion: normalizarTexto(entradaNormalizada[colDescripcion]),
-          tipo: normalizarTexto(entradaNormalizada[colTipo]),
-          codigoBarras: normalizarTexto(entradaNormalizada[colCodigoBarras]),
-          ubicacion: normalizarTexto(entradaNormalizada[colUbicacion]),
-          existencia,
-          costoUnitario,
-          valorFisico:
-            valorFisicoArchivo > 0
-              ? valorFisicoArchivo
-              : existencia * costoUnitario,
-        };
-      });
+     const filasParseadas: FilaInventarioNetSuite[] = json.map((filaOriginal) => {
+  const entradaNormalizada = Object.fromEntries(
+    Object.entries(filaOriginal).map(([key, value]) => [
+      key.toLowerCase().trim(),
+      value,
+    ])
+  );
+
+  const existencia = convertirEntero(entradaNormalizada[colExistenciaKey]);
+  const costoUnitario = convertirNumero(
+    entradaNormalizada[colCostoUnitarioKey]
+  );
+  const valorFisicoArchivo = convertirNumero(
+    entradaNormalizada[colValorFisicoKey]
+  );
+
+  return {
+    idInterno: convertirEntero(entradaNormalizada[colIdInternoKey]),
+    nombre: normalizarTexto(entradaNormalizada[colNombreKey]),
+    descripcion: normalizarTexto(entradaNormalizada[colDescripcionKey]),
+    tipo: normalizarTexto(entradaNormalizada[colTipoKey]),
+    codigoBarras: normalizarTexto(entradaNormalizada[colCodigoBarrasKey]),
+    ubicacion: normalizarTexto(entradaNormalizada[colUbicacionKey]),
+    existencia,
+    costoUnitario,
+    valorFisico:
+      valorFisicoArchivo > 0
+        ? valorFisicoArchivo
+        : existencia * costoUnitario,
+  };
+});
+
 
       const erroresValidacion: string[] = [];
       const clavesCompuestas = new Set<string>();
