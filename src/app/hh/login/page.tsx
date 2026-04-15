@@ -1,35 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { supabase } from "@/lib/supabase";
 
 export default function HandheldLoginPage() {
-  const router = useRouter();
+  const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
 
-  const [usuario, setUsuario] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const handleMicrosoftLogin = async () => {
+    try {
+      setLoadingMicrosoft(true);
 
-  const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "azure",
+        options: {
+          redirectTo: "https://ingenieria-system.vercel.app/auth/callback",
+        },
+      });
 
-    if (!usuario.trim() || !password.trim()) {
-      alert("Captura usuario y contraseña.");
-      return;
-    }
-
-    setLoading(true);
-
-    setTimeout(() => {
-      if (usuario !== "admin@productosdifo.com" || password !== "123456") {
-        alert("Credenciales incorrectas.");
-        setLoading(false);
-        return;
+      if (error) {
+        console.error("Error iniciando sesión HH con Microsoft:", error);
+        alert(error.message || "No se pudo iniciar sesión con Microsoft 365.");
       }
-
-      router.push("/hh");
-    }, 500);
+    } catch (error) {
+      console.error("Error inesperado en login HH:", error);
+      alert("Ocurrió un error al iniciar sesión.");
+    } finally {
+      setLoadingMicrosoft(false);
+    }
   };
 
   return (
@@ -50,57 +48,35 @@ export default function HandheldLoginPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#2f5b72]">
               Handheld
             </p>
+
             <h1 className="mt-2 text-3xl font-bold text-[#111111]">
               Ingeniería System
             </h1>
+
             <p className="mt-2 text-sm text-[#5f6b73]">
-              Accede para consultar inventario y registrar movimientos.
+              Accede con tu cuenta corporativa para consultar inventario y
+              registrar movimientos.
             </p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-[#111111]">
-                Usuario
-              </label>
-              <input
-                type="text"
-                value={usuario}
-                onChange={(e) => setUsuario(e.target.value)}
-                placeholder="Usuario"
-                className="min-h-[56px] w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 text-base text-[#111111] outline-none transition focus:border-[#264f63]"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-[#111111]">
-                Contraseña
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Contraseña"
-                className="min-h-[56px] w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 text-base text-[#111111] outline-none transition focus:border-[#264f63]"
-              />
-            </div>
-
+          <div className="space-y-4">
             <button
-              type="submit"
-              disabled={loading}
-              className="min-h-[56px] w-full rounded-2xl bg-[#264f63] px-5 text-base font-semibold text-white transition hover:bg-[#2f5b72] disabled:opacity-50"
+              type="button"
+              onClick={handleMicrosoftLogin}
+              disabled={loadingMicrosoft}
+              className="flex min-h-[56px] w-full items-center justify-center gap-3 rounded-2xl bg-[#264f63] px-5 text-base font-semibold text-white transition hover:bg-[#2f5b72] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? "Ingresando..." : "Entrar"}
+              <span className="text-lg">Ⓜ</span>
+              {loadingMicrosoft
+                ? "Redirigiendo a Microsoft..."
+                : "Entrar con Microsoft 365"}
             </button>
-          </form>
+          </div>
 
           <div className="mt-5 rounded-2xl bg-[#eef2f4] p-4 text-sm text-[#4f5b63]">
-            Demo: <span className="font-semibold">admin@productosdifo.com</span> /{" "}
-            <span className="font-semibold">123456</span>
+            Acceso exclusivo para usuarios autorizados del módulo handheld.
           </div>
         </div>
-
-      
       </div>
     </div>
   );

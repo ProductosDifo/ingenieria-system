@@ -1,28 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
 
-  const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleMicrosoftLogin = async () => {
+    try {
+      setLoadingMicrosoft(true);
 
-    if (!email || !password) {
-      alert("Completa correo y contraseña.");
-      return;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "azure",
+        options: {
+          redirectTo: "https://ingenieria-system.vercel.app/auth/callback",
+        },
+      });
+
+      if (error) {
+        console.error("Error iniciando sesión con Microsoft:", error);
+        alert(error.message || "No se pudo iniciar sesión con Microsoft 365.");
+      }
+    } catch (error) {
+      console.error("Error inesperado en login Microsoft:", error);
+      alert("Ocurrió un error al iniciar sesión.");
+    } finally {
+      setLoadingMicrosoft(false);
     }
-
-    if (email !== "admin@productosdifo.com" || password !== "123456") {
-      alert("Credenciales incorrectas.");
-      return;
-    }
-
-    router.push("/dashboard");
   };
 
   return (
@@ -30,27 +35,23 @@ export default function LoginPage() {
       <div className="grid w-full max-w-6xl overflow-hidden rounded-3xl bg-white shadow-2xl lg:grid-cols-2">
         <div className="hidden bg-[#264f63] p-10 text-white lg:flex lg:flex-col lg:justify-between">
           <div>
-
-            
             <div className="mb-8 flex items-center gap-4">
+              <Image
+                src="/images/logo-ingenik2.png"
+                alt="Logo Ingenieria"
+                width={60}
+                height={60}
+                className="rounded-xl bg-white p-1"
+              />
 
-  <Image
-    src="/images/logo-ingenik2.png"
-    alt="Logo Ingenieria"
-    width={60}
-    height={60}
-    className="rounded-xl bg-white p-1"
-  />
+              <div>
+                <p className="text-sm uppercase tracking-[0.25em] text-white/70">
+                  Sistema interno Progenik
+                </p>
 
-  <div>
-    <p className="text-sm uppercase tracking-[0.25em] text-white/70">
-      Sistema interno Progenik
-    </p>
-
-    <h1 className="text-2xl font-bold">Ingeniería System</h1>
-  </div>
-</div>
-
+                <h1 className="text-2xl font-bold">Ingeniería System</h1>
+              </div>
+            </div>
 
             <p className="text-sm uppercase tracking-[0.25em] text-white/70">
               Control de inventario y movimientos
@@ -63,22 +64,20 @@ export default function LoginPage() {
             </h2>
 
             <div className="mt-6">
-  <Image
-    src="/images/logo-netsuite2.png"
-    alt="Logo Netsuite"
-    width={140}
-    height={60}
-    className="opacity-90"
-  />
-</div>
+              <Image
+                src="/images/logo-netsuite2.png"
+                alt="Logo Netsuite"
+                width={140}
+                height={60}
+                className="opacity-90"
+              />
+            </div>
 
             <p className="mt-6 max-w-md text-base leading-relaxed text-white/80">
               Administra materiales, refacciones, consumibles y herramientas
               con trazabilidad por usuario, área y movimiento.
             </p>
           </div>
-
-         
         </div>
 
         <div className="bg-[#f7f8fa] p-8 sm:p-10 lg:p-12">
@@ -87,52 +86,33 @@ export default function LoginPage() {
               <p className="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-[#2f5b72]">
                 Acceso al sistema
               </p>
+
               <h2 className="text-3xl font-bold text-[#111111]">
                 Iniciar sesión
               </h2>
+
               <p className="mt-2 text-sm text-[#5f6b73]">
-                Ingresa para acceder al sistema de ingeniería y control de
-                inventario.
+                Ingresa con tu cuenta corporativa de Microsoft 365 para acceder
+                al sistema de ingeniería y control de inventario.
               </p>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-5">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#111111]">
-                  Correo electrónico
-                </label>
-                <input
-                  type="email"
-                  placeholder="admin@productosdifo.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 py-3 text-[#111111] outline-none transition focus:border-[#2f5b72]"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#111111]">
-                  Contraseña
-                </label>
-                <input
-                  type="password"
-                  placeholder="********"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 py-3 text-[#111111] outline-none transition focus:border-[#2f5b72]"
-                />
-              </div>
-
+            <div className="space-y-5">
               <button
-                type="submit"
-                className="w-full rounded-2xl bg-[#264f63] px-5 py-3 font-semibold text-white transition hover:bg-[#2f5b72]"
+                type="button"
+                onClick={handleMicrosoftLogin}
+                disabled={loadingMicrosoft}
+                className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#264f63] px-5 py-3 font-semibold text-white transition hover:bg-[#2f5b72] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Entrar al sistema
+                <span className="text-lg">Ⓜ</span>
+                {loadingMicrosoft
+                  ? "Redirigiendo a Microsoft..."
+                  : "Iniciar sesión con Microsoft 365"}
               </button>
-            </form>
+            </div>
 
             <div className="mt-6 rounded-2xl border border-[#d7dde1] bg-[#eef2f4] p-4 text-sm text-[#4f5b63]">
-              Acceso demo: admin@productosdifo.com / 123456
+              Acceso exclusivo para usuarios autorizados de la empresa.
             </div>
           </div>
         </div>
