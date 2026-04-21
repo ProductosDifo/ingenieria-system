@@ -17,10 +17,17 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     async function procesarLogin() {
       try {
-        const currentUrl = window.location.href;
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get("code");
+
+        if (!code) {
+          console.error("No llegó el code en la URL del callback.");
+          router.replace("/login");
+          return;
+        }
 
         const { error: exchangeError } =
-          await supabase.auth.exchangeCodeForSession(currentUrl);
+          await supabase.auth.exchangeCodeForSession(code);
 
         if (exchangeError) {
           console.error("Error intercambiando code por sesión:", exchangeError);
@@ -55,7 +62,6 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        // 1. Validar que el correo esté autorizado
         const { data: autorizado, error: autorizadoError } = await supabase
           .from("usuarios_autorizados")
           .select("email, nombre, rol, activo")
@@ -70,7 +76,6 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        // 2. Crear o actualizar perfil real ligado a auth.users.id
         const { error: upsertPerfilError } = await supabase
           .from("perfiles")
           .upsert(
