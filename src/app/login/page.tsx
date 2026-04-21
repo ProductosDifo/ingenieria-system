@@ -12,11 +12,13 @@ export default function LoginPage() {
       setLoadingMicrosoft(true);
 
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: "azure",
-        options: {
-          redirectTo: "https://ingenieria-system.vercel.app/auth/callback",
-        },
-      });
+  provider: "azure",
+  options: {
+    redirectTo: "https://ingenieria-system.vercel.app/auth/callback",
+    scopes: "email",
+  },
+});
+
 
       if (error) {
         console.error("Error iniciando sesión con Microsoft:", error);
