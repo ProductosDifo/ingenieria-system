@@ -11,14 +11,16 @@ export default function HandheldLoginPage() {
     try {
       setLoadingMicrosoft(true);
 
-      const { error } = await supabase.auth.signInWithOAuth({
+     const { error } = await supabase.auth.signInWithOAuth({
   provider: "azure",
   options: {
     redirectTo: "https://ingenieria-system.vercel.app/auth/callback",
     scopes: "email",
+    queryParams: {
+      prompt: "login",
+    },
   },
 });
-
 
       if (error) {
         console.error("Error iniciando sesión HH con Microsoft:", error);
