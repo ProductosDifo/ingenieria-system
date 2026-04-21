@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-type Perfil = {
+type UsuarioAutorizado = {
   email: string;
   nombre: string | null;
   rol: "admin" | "almacen" | "handheld";
@@ -17,6 +17,17 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     async function procesarLogin() {
       try {
+        const currentUrl = window.location.href;
+
+        const { error: exchangeError } =
+          await supabase.auth.exchangeCodeForSession(currentUrl);
+
+        if (exchangeError) {
+          console.error("Error intercambiando code por sesión:", exchangeError);
+          router.replace("/login");
+          return;
+        }
+
         const {
           data: { session },
           error: sessionError,
@@ -28,28 +39,61 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        const email = session?.user?.email?.toLowerCase().trim();
-
-        if (!email) {
+        if (!session) {
+          console.error("No se generó sesión después del callback.");
           router.replace("/login");
           return;
         }
 
-        const { data: perfil, error: perfilError } = await supabase
-          .from("perfiles")
+        const userId = session.user.id;
+        const email = session.user.email?.toLowerCase().trim();
+
+        if (!email) {
+          console.error("La sesión no contiene email.");
+          await supabase.auth.signOut();
+          router.replace("/login");
+          return;
+        }
+
+        // 1. Validar que el correo esté autorizado
+        const { data: autorizado, error: autorizadoError } = await supabase
+          .from("usuarios_autorizados")
           .select("email, nombre, rol, activo")
           .eq("email", email)
-          .single<Perfil>();
+          .single<UsuarioAutorizado>();
 
-        if (perfilError || !perfil || perfil.activo === false) {
-          console.error("Usuario no autorizado o sin perfil:", perfilError);
+        if (autorizadoError || !autorizado || autorizado.activo === false) {
+          console.error("Usuario no autorizado:", autorizadoError);
           await supabase.auth.signOut();
           alert("Tu usuario no está autorizado para entrar al sistema.");
           router.replace("/login");
           return;
         }
 
-        if (perfil.rol === "handheld") {
+        // 2. Crear o actualizar perfil real ligado a auth.users.id
+        const { error: upsertPerfilError } = await supabase
+          .from("perfiles")
+          .upsert(
+            {
+              id: userId,
+              email: autorizado.email,
+              nombre: autorizado.nombre,
+              rol: autorizado.rol,
+              activo: autorizado.activo,
+            },
+            {
+              onConflict: "id",
+            }
+          );
+
+        if (upsertPerfilError) {
+          console.error("Error creando/actualizando perfil:", upsertPerfilError);
+          await supabase.auth.signOut();
+          router.replace("/login");
+          return;
+        }
+
+        if (autorizado.rol === "handheld") {
           router.replace("/hh");
           return;
         }
