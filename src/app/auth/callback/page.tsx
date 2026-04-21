@@ -1,88 +1,139 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-export default function AuthCallbackDebugPage() {
-  const [logs, setLogs] = useState<string[]>([]);
+type UsuarioAutorizado = {
+  email: string;
+  nombre: string | null;
+  rol: "admin" | "almacen" | "handheld";
+  activo: boolean;
+};
 
-  function addLog(message: string) {
-    setLogs((prev) => [...prev, message]);
-  }
+export default function AuthCallbackPage() {
+  const router = useRouter();
 
   useEffect(() => {
-    async function debugCallback() {
+    async function procesarLogin() {
       try {
-        addLog("=== INICIO CALLBACK DEBUG ===");
-        addLog(`URL completa: ${window.location.href}`);
-        addLog(`Search: ${window.location.search}`);
+        const searchParams = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
 
-        const params = new URLSearchParams(window.location.search);
-        const code = params.get("code");
-        const error = params.get("error");
-        const errorDescription = params.get("error_description");
+        const code = searchParams.get("code");
+        const accessToken = hashParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token");
 
-        addLog(`code: ${code ? "SI" : "NO"}`);
-        addLog(`error param: ${error ?? "null"}`);
-        addLog(`error_description: ${errorDescription ?? "null"}`);
+        if (code) {
+          const { error: exchangeError } =
+            await supabase.auth.exchangeCodeForSession(code);
 
-        if (!code) {
-          addLog("No llegó code en la URL. Aquí está el fallo.");
+          if (exchangeError) {
+            console.error("Error intercambiando code por sesión:", exchangeError);
+            router.replace("/login");
+            return;
+          }
+        } else if (accessToken && refreshToken) {
+          const { error: setSessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (setSessionError) {
+            console.error("Error guardando sesión desde hash:", setSessionError);
+            router.replace("/login");
+            return;
+          }
+        } else {
+          console.error("No llegó ni code ni tokens al callback.");
+          router.replace("/login");
           return;
         }
-
-        addLog("Intentando exchangeCodeForSession...");
-
-        const { data: exchangeData, error: exchangeError } =
-          await supabase.auth.exchangeCodeForSession(code);
-
-        addLog(
-          `exchangeData: ${exchangeData ? JSON.stringify(exchangeData) : "null"}`
-        );
-        addLog(
-          `exchangeError: ${
-            exchangeError ? JSON.stringify(exchangeError) : "null"
-          }`
-        );
-
-        addLog("Consultando getSession...");
 
         const {
           data: { session },
           error: sessionError,
         } = await supabase.auth.getSession();
 
-        addLog(
-          `sessionError: ${sessionError ? JSON.stringify(sessionError) : "null"}`
-        );
-        addLog(`session existe: ${session ? "SI" : "NO"}`);
-
-        if (session) {
-          addLog(`user.id: ${session.user.id}`);
-          addLog(`user.email: ${session.user.email ?? "sin email"}`);
+        if (sessionError) {
+          console.error("Error obteniendo sesión:", sessionError);
+          router.replace("/login");
+          return;
         }
 
-        addLog("=== FIN CALLBACK DEBUG ===");
-      } catch (err) {
-        addLog(`ERROR GENERAL: ${JSON.stringify(err)}`);
+        if (!session) {
+          console.error("No se generó sesión después del callback.");
+          router.replace("/login");
+          return;
+        }
+
+        const userId = session.user.id;
+        const email = session.user.email?.toLowerCase().trim();
+
+        if (!email) {
+          console.error("La sesión no contiene email.");
+          await supabase.auth.signOut();
+          router.replace("/login");
+          return;
+        }
+
+        const { data: autorizado, error: autorizadoError } = await supabase
+          .from("usuarios_autorizados")
+          .select("email, nombre, rol, activo")
+          .eq("email", email)
+          .single<UsuarioAutorizado>();
+
+        if (autorizadoError || !autorizado || autorizado.activo === false) {
+          console.error("Usuario no autorizado:", autorizadoError);
+          await supabase.auth.signOut();
+          alert("Tu usuario no está autorizado para entrar al sistema.");
+          router.replace("/login");
+          return;
+        }
+
+        const { error: upsertPerfilError } = await supabase
+          .from("perfiles")
+          .upsert(
+            {
+              id: userId,
+              email: autorizado.email,
+              nombre: autorizado.nombre,
+              rol: autorizado.rol,
+              activo: autorizado.activo,
+            },
+            {
+              onConflict: "id",
+            }
+          );
+
+        if (upsertPerfilError) {
+          console.error("Error creando/actualizando perfil:", upsertPerfilError);
+          await supabase.auth.signOut();
+          router.replace("/login");
+          return;
+        }
+
+        if (autorizado.rol === "handheld") {
+          router.replace("/hh");
+          return;
+        }
+
+        router.replace("/dashboard");
+      } catch (error) {
+        console.error("Error en callback de autenticación:", error);
+        router.replace("/login");
       }
     }
 
-    debugCallback();
-  }, []);
+    procesarLogin();
+  }, [router]);
 
   return (
-    <div className="min-h-screen bg-[#e7ecef] p-6">
-      <div className="mx-auto max-w-4xl rounded-2xl bg-white p-6 shadow-md">
-        <h1 className="mb-4 text-2xl font-bold text-[#111111]">
-          Debug callback Microsoft / Supabase
-        </h1>
-
-        <div className="rounded-xl bg-[#111111] p-4 text-sm text-green-400">
-          <pre className="whitespace-pre-wrap">
-            {logs.length > 0 ? logs.join("\n") : "Cargando..."}
-          </pre>
-        </div>
+    <div className="flex min-h-screen items-center justify-center bg-[#e7ecef]">
+      <div className="rounded-2xl bg-white px-6 py-4 shadow-md">
+        <p className="text-sm font-semibold text-[#264f63]">
+          Iniciando sesión...
+        </p>
       </div>
     </div>
   );
