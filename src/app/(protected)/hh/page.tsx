@@ -1,8 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 export default function HandheldHomePage() {
+  const router = useRouter();
+  const supabase = createClient();
+
   const opciones = [
     {
       titulo: "Consultar inventario",
@@ -23,6 +28,18 @@ export default function HandheldHomePage() {
       icono: "📥",
     },
   ];
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error("Error cerrando sesión:", error);
+      alert("No se pudo cerrar la sesión correctamente.");
+      return;
+    }
+
+    router.replace("/login");
+  };
 
   return (
     <div className="min-h-screen bg-[#e7ecef] px-4 py-6">
@@ -65,17 +82,13 @@ export default function HandheldHomePage() {
         </div>
 
         <div className="mt-auto pt-6">
-  <button
-    onClick={() => {
-      // aquí luego irá tu logout real con backend
-      localStorage.removeItem("user"); // opcional si usas storage
-      window.location.href = "/hh/login";
-    }}
-    className="w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 py-4 text-center text-base font-semibold text-[#264f63] shadow-sm"
-  >
-    Cerrar sesión
-  </button>
-</div>
+          <button
+            onClick={handleLogout}
+            className="w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 py-4 text-center text-base font-semibold text-[#264f63] shadow-sm"
+          >
+            Cerrar sesión
+          </button>
+        </div>
       </div>
     </div>
   );
