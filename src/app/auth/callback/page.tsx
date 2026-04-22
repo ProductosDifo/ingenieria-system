@@ -18,18 +18,29 @@ export default function AuthCallbackPage() {
     async function procesarLogin() {
       try {
         const searchParams = new URLSearchParams(window.location.search);
-        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+        const hashParams = new URLSearchParams(
+          window.location.hash.replace(/^#/, "")
+        );
 
         const code = searchParams.get("code");
         const accessToken = hashParams.get("access_token");
         const refreshToken = hashParams.get("refresh_token");
+
+        console.log("[AUTH] search:", window.location.search);
+        console.log("[AUTH] hash:", window.location.hash);
+        console.log("[AUTH] code:", code);
+        console.log("[AUTH] accessToken existe:", !!accessToken);
+        console.log("[AUTH] refreshToken existe:", !!refreshToken);
 
         if (code) {
           const { error: exchangeError } =
             await supabase.auth.exchangeCodeForSession(code);
 
           if (exchangeError) {
-            console.error("Error intercambiando code por sesión:", exchangeError);
+            console.error(
+              "[AUTH] Error intercambiando code por sesión:",
+              exchangeError
+            );
             router.replace("/login");
             return;
           }
@@ -40,12 +51,15 @@ export default function AuthCallbackPage() {
           });
 
           if (setSessionError) {
-            console.error("Error guardando sesión desde hash:", setSessionError);
+            console.error(
+              "[AUTH] Error guardando sesión desde hash:",
+              setSessionError
+            );
             router.replace("/login");
             return;
           }
         } else {
-          console.error("No llegó ni code ni tokens al callback.");
+          console.error("[AUTH] No llegó ni code ni tokens al callback.");
           router.replace("/login");
           return;
         }
@@ -55,14 +69,17 @@ export default function AuthCallbackPage() {
           error: sessionError,
         } = await supabase.auth.getSession();
 
+        console.log("[AUTH] session:", session);
+        console.log("[AUTH] sessionError:", sessionError);
+
         if (sessionError) {
-          console.error("Error obteniendo sesión:", sessionError);
+          console.error("[AUTH] Error obteniendo sesión:", sessionError);
           router.replace("/login");
           return;
         }
 
         if (!session) {
-          console.error("No se generó sesión después del callback.");
+          console.error("[AUTH] No se generó sesión después del callback.");
           router.replace("/login");
           return;
         }
@@ -70,8 +87,12 @@ export default function AuthCallbackPage() {
         const userId = session.user.id;
         const email = session.user.email?.toLowerCase().trim();
 
+        console.log("[AUTH] session.user:", session.user);
+        console.log("[AUTH] userId:", userId);
+        console.log("[AUTH] email recibido:", email);
+
         if (!email) {
-          console.error("La sesión no contiene email.");
+          console.error("[AUTH] La sesión no contiene email.");
           await supabase.auth.signOut();
           router.replace("/login");
           return;
@@ -83,31 +104,45 @@ export default function AuthCallbackPage() {
           .eq("email", email)
           .single<UsuarioAutorizado>();
 
+        console.log("[AUTH] autorizado:", autorizado);
+        console.log("[AUTH] autorizadoError:", autorizadoError);
+
         if (autorizadoError || !autorizado || autorizado.activo === false) {
-          console.error("Usuario no autorizado:", autorizadoError);
+          console.error(
+            "[AUTH] Usuario no autorizado o sin registro:",
+            autorizadoError
+          );
           await supabase.auth.signOut();
           alert("Tu usuario no está autorizado para entrar al sistema.");
           router.replace("/login");
           return;
         }
 
-        const { error: upsertPerfilError } = await supabase
-          .from("perfiles")
-          .upsert(
-            {
-              id: userId,
-              email: autorizado.email,
-              nombre: autorizado.nombre,
-              rol: autorizado.rol,
-              activo: autorizado.activo,
-            },
-            {
-              onConflict: "id",
-            }
-          );
+        const { data: perfilGuardado, error: upsertPerfilError } =
+          await supabase
+            .from("perfiles")
+            .upsert(
+              {
+                id: userId,
+                email: autorizado.email,
+                nombre: autorizado.nombre,
+                rol: autorizado.rol,
+                activo: autorizado.activo,
+              },
+              {
+                onConflict: "id",
+              }
+            )
+            .select();
+
+        console.log("[AUTH] perfilGuardado:", perfilGuardado);
+        console.log("[AUTH] upsertPerfilError:", upsertPerfilError);
 
         if (upsertPerfilError) {
-          console.error("Error creando/actualizando perfil:", upsertPerfilError);
+          console.error(
+            "[AUTH] Error creando/actualizando perfil:",
+            upsertPerfilError
+          );
           await supabase.auth.signOut();
           router.replace("/login");
           return;
@@ -120,7 +155,7 @@ export default function AuthCallbackPage() {
 
         router.replace("/dashboard");
       } catch (error) {
-        console.error("Error en callback de autenticación:", error);
+        console.error("[AUTH] Error en callback de autenticación:", error);
         router.replace("/login");
       }
     }
