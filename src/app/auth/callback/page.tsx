@@ -148,12 +148,7 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        if (autorizado.rol === "handheld") {
-          router.replace("/hh");
-          return;
-        }
-
-        router.replace("/dashboard");
+        router.replace("/select-device");
       } catch (error) {
         console.error("[AUTH] Error en callback de autenticación:", error);
         router.replace("/login");
