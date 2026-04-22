@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase";
 
 export default function HandheldHomePage() {
   const router = useRouter();
-  const supabase = createClient();
 
   const opciones = [
     {
@@ -30,15 +29,20 @@ export default function HandheldHomePage() {
   ];
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
+    try {
+      const { error } = await supabase.auth.signOut();
 
-    if (error) {
-      console.error("Error cerrando sesión:", error);
-      alert("No se pudo cerrar la sesión correctamente.");
-      return;
+      if (error) {
+        console.error("Error cerrando sesión:", error);
+        alert("No se pudo cerrar la sesión correctamente.");
+        return;
+      }
+
+      router.replace("/login");
+    } catch (err) {
+      console.error("Error inesperado en logout:", err);
+      router.replace("/login");
     }
-
-    router.replace("/login");
   };
 
   return (
