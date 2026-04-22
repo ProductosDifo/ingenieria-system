@@ -2,17 +2,36 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
   const menuClass = (path: string) =>
-    `block rounded-2xl px-4 py-3 transition ${
+    `flex min-h-[56px] items-center rounded-2xl px-4 py-3 text-sm leading-5 transition ${
       pathname === path
-        ? "bg-white font-semibold text-[#264f63]"
+        ? "bg-white font-semibold text-[#264f63] shadow-sm"
         : "text-white/85 hover:bg-white/10"
     }`;
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.error("Error cerrando sesión:", error);
+        alert("No se pudo cerrar la sesión correctamente.");
+        return;
+      }
+
+      router.replace("/login");
+    } catch (error) {
+      console.error("Error inesperado al cerrar sesión:", error);
+      router.replace("/login");
+    }
+  };
 
   return (
     <aside className="flex w-[290px] flex-col bg-[#264f63] text-white shadow-xl">
@@ -36,81 +55,81 @@ export default function Sidebar() {
       <nav className="flex-1 px-4 py-6">
         <ul className="space-y-2">
           <li>
-            <a href="/dashboard" className={menuClass("/dashboard")}>
-              Inicio
-            </a>
+            <Link href="/dashboard" className={menuClass("/dashboard")}>
+              <span>Inicio</span>
+            </Link>
           </li>
 
           <li>
-            <a
+            <Link
               href="/registrar-devolucion"
               className={menuClass("/registrar-devolucion")}
             >
-              Registrar devolución
-            </a>
+              <span>Registrar devolución</span>
+            </Link>
           </li>
 
           <li>
-            <a
+            <Link
               href="/registrar-salida"
               className={menuClass("/registrar-salida")}
             >
-              Registrar salida
-            </a>
+              <span>Registrar salida</span>
+            </Link>
           </li>
 
           <li className="mt-4 border-t border-white/10" />
 
-           <li>
-            <a
+          <li>
+            <Link
               href="/consultar-inventario"
               className={menuClass("/consultar-inventario")}
             >
-              Consultar inventario
-            </a>
+              <span>Consultar inventario</span>
+            </Link>
           </li>
 
           <li>
-            <a
+            <Link
               href="/consultar-salidas"
               className={menuClass("/consultar-salidas")}
             >
-              Consultar salidas
-            </a>
+              <span>Consultar salidas</span>
+            </Link>
           </li>
 
           <li>
-            <a
+            <Link
               href="/consultar-prestamos"
               className={menuClass("/consultar-prestamos")}
             >
-              Consultar préstamos
-            </a>
+              <span>Consultar préstamos</span>
+            </Link>
           </li>
 
           <li>
-            <a
+            <Link
               href="/consultar-devoluciones"
               className={menuClass("/consultar-devoluciones")}
             >
-              Consultar devoluciones
-            </a>
+              <span>Consultar devoluciones</span>
+            </Link>
           </li>
 
           <li className="mt-4 border-t border-white/10" />
 
           <li>
-            <a
+            <Link
               href="/actualizar-inventarios-netsuite"
               className={menuClass("/actualizar-inventarios-netsuite")}
             >
-              Actualizar inventarios con NetSuite
-            </a>
+              <span>Actualizar inventarios con NetSuite</span>
+            </Link>
           </li>
 
           <li className="pt-4">
             <button
-              onClick={() => router.push("/login")}
+              onClick={handleLogout}
               className="w-full rounded-2xl border border-white/20 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
             >
               Cerrar sesión
