@@ -5,16 +5,61 @@ import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
+type MenuItem = {
+  href: string;
+  label: string;
+  icon: string;
+};
+
+const movimientos: MenuItem[] = [
+  { href: "/dashboard", label: "Inicio", icon: "🏠" },
+  { href: "/registrar-devolucion", label: "Registrar devolución", icon: "📥" },
+  { href: "/registrar-salida", label: "Registrar salida", icon: "📤" },
+];
+
+const consultas: MenuItem[] = [
+  { href: "/consultar-inventario", label: "Consultar inventario", icon: "📦" },
+  { href: "/consultar-salidas", label: "Consultar salidas", icon: "📋" },
+  { href: "/consultar-prestamos", label: "Consultar préstamos", icon: "🧰" },
+  { href: "/consultar-devoluciones", label: "Consultar devoluciones", icon: "↩️" },
+];
+
+const integraciones: MenuItem[] = [
+  {
+    href: "/actualizar-inventarios-netsuite",
+    label: "Actualizar inventarios con NetSuite",
+    icon: "🔄",
+  },
+];
+
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
   const menuClass = (path: string) =>
-    `flex h-[56px] w-full items-center rounded-2xl px-4 text-sm transition ${
+    `group flex h-[56px] w-full items-center gap-3 rounded-2xl px-4 text-sm transition ${
       pathname === path
-        ? "bg-white font-semibold text-[#264f63] shadow-sm"
-        : "text-white/85 hover:bg-white/10"
+        ? "bg-white font-semibold text-[#264f63] shadow-md"
+        : "text-white/85 hover:bg-white/10 hover:text-white"
     }`;
+
+  const renderItem = (item: MenuItem) => (
+    <li key={item.href}>
+      <Link href={item.href} className={menuClass(item.href)}>
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base transition ${
+            pathname === item.href
+              ? "bg-[#264f63]/10"
+              : "bg-white/10 group-hover:bg-white/15"
+          }`}
+        >
+          {item.icon}
+        </span>
+
+        <span className="leading-5">{item.label}</span>
+      </Link>
+    </li>
+  );
 
   const handleLogout = async () => {
     try {
@@ -34,111 +79,71 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="flex w-[320px] shrink-0 flex-col bg-[#264f63] text-white shadow-xl">
-      <div className="border-b border-white/10 px-8 py-8">
-        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 p-2">
-          <Image
-            src="/images/logo-ingenik.png"
-            alt="Logo Progenik"
-            width={60}
-            height={60}
-            className="object-contain"
-          />
+    <aside className="flex w-[320px] shrink-0 flex-col bg-gradient-to-b from-[#173a4a] via-[#264f63] to-[#1f4254] text-white shadow-2xl">
+      <div className="border-b border-white/10 px-7 py-7">
+        <div className="mb-6 flex items-center gap-4">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/95 p-2 shadow-lg">
+            <Image
+              src="/images/logo-ingenik.png"
+              alt="Logo Progenik"
+              width={58}
+              height={58}
+              className="object-contain"
+            />
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">
+              Sistema interno
+            </p>
+            <h2 className="mt-1 text-xl font-bold leading-tight">
+              Ingeniería
+            </h2>
+          </div>
         </div>
 
-        <h2 className="text-2xl font-bold leading-tight">Ingeniería System</h2>
-        <p className="mt-2 text-sm leading-5 text-white/70">
-          Control de inventario, salidas, préstamos y devoluciones
-        </p>
+        <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/10">
+          <p className="text-sm font-semibold text-white">Control operativo</p>
+          <p className="mt-1 text-xs leading-5 text-white/65">
+            Inventario, salidas, préstamos y devoluciones.
+          </p>
+        </div>
       </div>
 
-      <nav className="flex-1 px-4 py-6">
-        <ul className="space-y-2">
-          <li>
-            <Link href="/dashboard" className={menuClass("/dashboard")}>
-              <span className="whitespace-nowrap">Inicio</span>
-            </Link>
-          </li>
+      <nav className="flex-1 overflow-y-auto px-4 py-5">
+        <div className="space-y-5">
+          <section>
+            <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-[0.22em] text-white/45">
+              Movimientos
+            </p>
+            <ul className="space-y-2">{movimientos.map(renderItem)}</ul>
+          </section>
 
-          <li>
-            <Link
-              href="/registrar-devolucion"
-              className={menuClass("/registrar-devolucion")}
-            >
-              <span className="whitespace-nowrap">Registrar devolución</span>
-            </Link>
-          </li>
+          <section>
+            <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-[0.22em] text-white/45">
+              Consultas
+            </p>
+            <ul className="space-y-2">{consultas.map(renderItem)}</ul>
+          </section>
 
-          <li>
-            <Link
-              href="/registrar-salida"
-              className={menuClass("/registrar-salida")}
-            >
-              <span className="whitespace-nowrap">Registrar salida</span>
-            </Link>
-          </li>
-
-          <li className="my-4 border-t border-white/10" />
-
-          <li>
-            <Link
-              href="/consultar-inventario"
-              className={menuClass("/consultar-inventario")}
-            >
-              <span className="whitespace-nowrap">Consultar inventario</span>
-            </Link>
-          </li>
-
-          <li>
-            <Link
-              href="/consultar-salidas"
-              className={menuClass("/consultar-salidas")}
-            >
-              <span className="whitespace-nowrap">Consultar salidas</span>
-            </Link>
-          </li>
-
-          <li>
-            <Link
-              href="/consultar-prestamos"
-              className={menuClass("/consultar-prestamos")}
-            >
-              <span className="whitespace-nowrap">Consultar préstamos</span>
-            </Link>
-          </li>
-
-          <li>
-            <Link
-              href="/consultar-devoluciones"
-              className={menuClass("/consultar-devoluciones")}
-            >
-              <span className="whitespace-nowrap">Consultar devoluciones</span>
-            </Link>
-          </li>
-
-          <li className="my-4 border-t border-white/10" />
-
-          <li>
-            <Link
-              href="/actualizar-inventarios-netsuite"
-              className={menuClass("/actualizar-inventarios-netsuite")}
-            >
-              <span className="leading-5">
-                Actualizar inventarios con NetSuite
-              </span>
-            </Link>
-          </li>
-
-          <li className="pt-4">
-            <button
-              onClick={handleLogout}
-              className="h-[56px] w-full rounded-2xl border border-white/20 px-4 text-sm font-semibold text-white transition hover:bg-white/10"
-            >
-              Cerrar sesión
-            </button>
-          </li>
-        </ul>
+          <section>
+            <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-[0.22em] text-white/45">
+              Integraciones
+            </p>
+            <ul className="space-y-2">{integraciones.map(renderItem)}</ul>
+          </section>
+        </div>
       </nav>
+
+      <div className="border-t border-white/10 p-4">
+        <button
+          onClick={handleLogout}
+          className="flex h-[56px] w-full items-center justify-center gap-3 rounded-2xl border border-white/15 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/15"
+        >
+          <span>🚪</span>
+          Cerrar sesión
+        </button>
+      </div>
     </aside>
   );
 }
