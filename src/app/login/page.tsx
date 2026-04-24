@@ -14,7 +14,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "azure",
         options: {
-          redirectTo: "https://app.ingenik.net/auth/callback",
+         redirectTo: "https://ingenieria-system.vercel.app/auth/callback",
           scopes: "email",
           queryParams: {
             prompt: "login",
