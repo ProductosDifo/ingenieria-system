@@ -82,15 +82,17 @@ export default function Sidebar() {
     <aside className="flex w-[320px] shrink-0 flex-col bg-gradient-to-b from-[#173a4a] via-[#264f63] to-[#1f4254] text-white shadow-2xl">
       <div className="border-b border-white/10 px-7 py-7">
         <div className="mb-6 flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/95 p-2 shadow-lg">
-            <Image
-              src="/images/logo-ingenik.png"
-              alt="Logo Progenik"
-              width={58}
-              height={58}
-              className="object-contain"
-            />
-          </div>
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white p-1 shadow-lg ring-1 ring-white/20">
+  <Image
+    src="/images/logo-ingenik2.png"
+    alt="Logo Progenik"
+    width={60}
+    height={60}
+    className="h-14 w-14 object-contain"
+    priority
+  />
+</div>
+
 
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">
