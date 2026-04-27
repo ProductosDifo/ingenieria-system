@@ -166,17 +166,47 @@ export default function HHSalidaPage() {
     setMostrarArticulos(false);
   };
 
-  const buscarPrimerArticulo = () => {
-    if (!busquedaArticulo.trim()) return;
+ const buscarPrimerArticulo = async () => {
+  const texto = busquedaArticulo.trim();
+
+  if (!texto) return;
+
+  try {
+    setCargandoArticulos(true);
+
+    const codigoLimpio = texto.split(" - ")[0].trim();
+
+    const { data, error } = await supabase
+      .from("articulos")
+      .select("id, codigo_barras, nombre, descripcion, tipo, existencia")
+      .eq("codigo_barras", codigoLimpio)
+      .gt("existencia", 0)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error buscando artículo exacto HH:", error);
+      alert("Error buscando el artículo.");
+      return;
+    }
+
+    if (data) {
+      seleccionarArticulo(data as Articulo);
+      return;
+    }
 
     const encontrado = articulosFiltrados[0];
+
     if (encontrado) {
       seleccionarArticulo(encontrado);
     } else {
       setArticuloSeleccionado(null);
-      alert("No se encontró ningún artículo.");
+      alert("No se encontró ningún artículo con ese código.");
     }
-  };
+  } finally {
+    setCargandoArticulos(false);
+  }
+};
+
 
   const limpiarCapturaArticulo = () => {
     setBusquedaArticulo("");

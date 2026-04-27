@@ -72,10 +72,41 @@ export default function HHInventarioPage() {
     return () => clearTimeout(timer);
   }, [busqueda]);
 
-  const buscarPrimerResultado = () => {
-    if (!busqueda.trim()) return;
+ const buscarPrimerResultado = async () => {
+  const texto = busqueda.trim();
+
+  if (!texto) return;
+
+  try {
+    setCargando(true);
+
+    const codigoLimpio = texto.split(" - ")[0].trim();
+
+    const { data, error } = await supabase
+      .from("articulos")
+      .select(
+        "id, codigo_barras, nombre, descripcion, tipo, existencia, costo_unitario, valor_fisico"
+      )
+      .eq("codigo_barras", codigoLimpio)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error buscando artículo exacto:", error);
+      alert("Error buscando el artículo.");
+      return;
+    }
+
+    if (data) {
+      const articulo = data as InventarioItem;
+
+      setSeleccionado(articulo);
+      setBusqueda(`${articulo.codigo_barras || "SIN-CODIGO"} - ${articulo.nombre}`);
+      setResultados([articulo]);
+      return;
+    }
 
     const encontrado = resultados[0];
+
     if (encontrado) {
       setSeleccionado(encontrado);
       setBusqueda(
@@ -83,9 +114,13 @@ export default function HHInventarioPage() {
       );
     } else {
       setSeleccionado(null);
-      alert("No se encontró ningún artículo.");
+      alert("No se encontró ningún artículo con ese código.");
     }
-  };
+  } finally {
+    setCargando(false);
+  }
+};
+
 
   const seleccionarItem = (item: InventarioItem) => {
     setSeleccionado(item);
