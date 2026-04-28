@@ -241,23 +241,16 @@ export default function ConsultarSalidasPage() {
       return;
     }
 
-    const sinIdInterno = salidas.filter((item) => !item.idInterno);
-
-    if (sinIdInterno.length > 0) {
-      alert(
-        "Hay artículos sin ID interno de NetSuite. No se puede generar el CSV hasta corregirlos."
-      );
-      return;
-    }
-
     const data = salidas.map((item) => ({
       "ID externo": item.folio,
-      "ID interno": item.idInterno,
+      Artículo: item.nombre,
       "Cantidad retirada": item.cantidadRetirada,
-      "Ubicación origen": "Ingenieria : Refacciones I",
+      "Cantidad detalle": item.cantidadRetirada,
+      Estado: "Good",
+      "Ubicación Origen": "Ingenieria : Refacciones I",
       "Ubicación destino": "Ingenieria : Salidas",
       Subsidiaria: "Empresa principal : PRODUCTOS DIFO",
-      Fecha: item.fecha,
+      Fecha: fechaSeleccionada,
       Nota: item.ticket,
     }));
 
