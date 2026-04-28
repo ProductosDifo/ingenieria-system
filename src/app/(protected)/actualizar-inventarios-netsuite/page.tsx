@@ -220,7 +220,7 @@ const colValorFisicoKey = colValorFisico!;
 
 
       const erroresValidacion: string[] = [];
-      const clavesCompuestas = new Set<string>();
+      const codigosBarras = new Set<string>();
 
       filasParseadas.forEach((fila, index) => {
         const numeroFila = index + 2;
@@ -245,15 +245,23 @@ const colValorFisicoKey = colValorFisico!;
           erroresValidacion.push(`Fila ${numeroFila}: ubicacion vacía.`);
         }
 
-        const claveCompuesta = `${fila.idInterno}__${fila.ubicacion.toUpperCase()}`;
+        const codigoNormalizado = fila.codigoBarras.toUpperCase();
 
-        if (clavesCompuestas.has(claveCompuesta)) {
-          erroresValidacion.push(
-            `Fila ${numeroFila}: combinación duplicada de ID interno (${fila.idInterno}) y ubicación (${fila.ubicacion}).`
-          );
-        } else {
-          clavesCompuestas.add(claveCompuesta);
-        }
+if (codigosBarras.has(codigoNormalizado)) {
+  erroresValidacion.push(
+    `Fila ${numeroFila}: código de barras duplicado (${fila.codigoBarras}).`
+  );
+} else {
+  codigosBarras.add(codigoNormalizado);
+}const codigoNormalizado = fila.codigoBarras.toUpperCase();
+
+if (codigosBarras.has(codigoNormalizado)) {
+  erroresValidacion.push(
+    `Fila ${numeroFila}: código de barras duplicado (${fila.codigoBarras}).`
+  );
+} else {
+  codigosBarras.add(codigoNormalizado);
+}
       });
 
       setFilas(filasParseadas);
@@ -306,7 +314,7 @@ const colValorFisicoKey = colValorFisico!;
 
       for (const bloque of bloques) {
         const { error } = await supabase.from("articulos").upsert(bloque, {
-          onConflict: "id_interno,ubicacion",
+          onConflict: "codigo_barras",
           ignoreDuplicates: false,
         });
 
@@ -361,7 +369,7 @@ const colValorFisicoKey = colValorFisico!;
 
       setEstado("success");
       alert(
-        "Inventario importado correctamente. Lo existente se reemplazó y lo no incluido quedó en 0."
+        "Inventario importado correctamente. Los articulos se actualizaron por código de barras."
       );
     } catch (error: any) {
       console.error("Error importando inventario:", error);
