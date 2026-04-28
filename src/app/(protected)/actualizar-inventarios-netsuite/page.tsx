@@ -61,9 +61,11 @@ function formatearMoneda(valor: number) {
 
 function trocear<T>(arreglo: T[], tamano: number) {
   const resultado: T[][] = [];
+
   for (let i = 0; i < arreglo.length; i += tamano) {
     resultado.push(arreglo.slice(i, i + tamano));
   }
+
   return resultado;
 }
 
@@ -74,8 +76,8 @@ export default function ActualizarInventariosNetSuitePage() {
   const [estado, setEstado] = useState<EstadoCarga>("idle");
   const [resumenImportacion, setResumenImportacion] = useState<{
     procesados: number;
-    insertadosOActualizados: number;
-    desactivados: number;
+    insertados: number;
+    eliminados: number;
     sincronizacion: string;
   } | null>(null);
 
@@ -157,6 +159,7 @@ export default function ActualizarInventariosNetSuitePage() {
       const colValorFisico = encontrarColumna(posiblesColumnas.valorFisico);
 
       const faltantes: string[] = [];
+
       if (!colIdInterno) faltantes.push("ID interno");
       if (!colNombre) faltantes.push("nombre");
       if (!colDescripcion) faltantes.push("descripcion");
@@ -176,48 +179,56 @@ export default function ActualizarInventariosNetSuitePage() {
       }
 
       const colIdInternoKey = colIdInterno!;
-const colNombreKey = colNombre!;
-const colDescripcionKey = colDescripcion!;
-const colTipoKey = colTipo!;
-const colCodigoBarrasKey = colCodigoBarras!;
-const colUbicacionKey = colUbicacion!;
-const colExistenciaKey = colExistencia!;
-const colCostoUnitarioKey = colCostoUnitario!;
-const colValorFisicoKey = colValorFisico!;
+      const colNombreKey = colNombre!;
+      const colDescripcionKey = colDescripcion!;
+      const colTipoKey = colTipo!;
+      const colCodigoBarrasKey = colCodigoBarras!;
+      const colUbicacionKey = colUbicacion!;
+      const colExistenciaKey = colExistencia!;
+      const colCostoUnitarioKey = colCostoUnitario!;
+      const colValorFisicoKey = colValorFisico!;
 
+      const filasParseadas: FilaInventarioNetSuite[] = json.map(
+        (filaOriginal) => {
+          const entradaNormalizada = Object.fromEntries(
+            Object.entries(filaOriginal).map(([key, value]) => [
+              key.toLowerCase().trim(),
+              value,
+            ])
+          );
 
-     const filasParseadas: FilaInventarioNetSuite[] = json.map((filaOriginal) => {
-  const entradaNormalizada = Object.fromEntries(
-    Object.entries(filaOriginal).map(([key, value]) => [
-      key.toLowerCase().trim(),
-      value,
-    ])
-  );
+          const existencia = convertirEntero(
+            entradaNormalizada[colExistenciaKey]
+          );
 
-  const existencia = convertirEntero(entradaNormalizada[colExistenciaKey]);
-  const costoUnitario = convertirNumero(
-    entradaNormalizada[colCostoUnitarioKey]
-  );
-  const valorFisicoArchivo = convertirNumero(
-    entradaNormalizada[colValorFisicoKey]
-  );
+          const costoUnitario = convertirNumero(
+            entradaNormalizada[colCostoUnitarioKey]
+          );
 
-  return {
-    idInterno: convertirEntero(entradaNormalizada[colIdInternoKey]),
-    nombre: normalizarTexto(entradaNormalizada[colNombreKey]),
-    descripcion: normalizarTexto(entradaNormalizada[colDescripcionKey]),
-    tipo: normalizarTexto(entradaNormalizada[colTipoKey]),
-    codigoBarras: normalizarTexto(entradaNormalizada[colCodigoBarrasKey]),
-    ubicacion: normalizarTexto(entradaNormalizada[colUbicacionKey]),
-    existencia,
-    costoUnitario,
-    valorFisico:
-      valorFisicoArchivo > 0
-        ? valorFisicoArchivo
-        : existencia * costoUnitario,
-  };
-});
+          const valorFisicoArchivo = convertirNumero(
+            entradaNormalizada[colValorFisicoKey]
+          );
 
+          return {
+            idInterno: convertirEntero(entradaNormalizada[colIdInternoKey]),
+            nombre: normalizarTexto(entradaNormalizada[colNombreKey]),
+            descripcion: normalizarTexto(
+              entradaNormalizada[colDescripcionKey]
+            ),
+            tipo: normalizarTexto(entradaNormalizada[colTipoKey]),
+            codigoBarras: normalizarTexto(
+              entradaNormalizada[colCodigoBarrasKey]
+            ),
+            ubicacion: normalizarTexto(entradaNormalizada[colUbicacionKey]),
+            existencia,
+            costoUnitario,
+            valorFisico:
+              valorFisicoArchivo > 0
+                ? valorFisicoArchivo
+                : existencia * costoUnitario,
+          };
+        }
+      );
 
       const erroresValidacion: string[] = [];
       const codigosBarras = new Set<string>();
@@ -245,23 +256,15 @@ const colValorFisicoKey = colValorFisico!;
           erroresValidacion.push(`Fila ${numeroFila}: ubicacion vacía.`);
         }
 
-        const codigoNormalizado = fila.codigoBarras.toUpperCase();
+        const codigoNormalizado = fila.codigoBarras.trim().toUpperCase();
 
-if (codigosBarras.has(codigoNormalizado)) {
-  erroresValidacion.push(
-    `Fila ${numeroFila}: código de barras duplicado (${fila.codigoBarras}).`
-  );
-} else {
-  codigosBarras.add(codigoNormalizado);
-}const codigoNormalizado = fila.codigoBarras.toUpperCase();
-
-if (codigosBarras.has(codigoNormalizado)) {
-  erroresValidacion.push(
-    `Fila ${numeroFila}: código de barras duplicado (${fila.codigoBarras}).`
-  );
-} else {
-  codigosBarras.add(codigoNormalizado);
-}
+        if (codigoNormalizado && codigosBarras.has(codigoNormalizado)) {
+          erroresValidacion.push(
+            `Fila ${numeroFila}: código de barras duplicado (${fila.codigoBarras}).`
+          );
+        } else {
+          codigosBarras.add(codigoNormalizado);
+        }
       });
 
       setFilas(filasParseadas);
@@ -288,6 +291,12 @@ if (codigosBarras.has(codigoNormalizado)) {
       return;
     }
 
+    const confirmar = window.confirm(
+      "Esto eliminará todos los artículos actuales y cargará el inventario nuevo. ¿Deseas continuar?"
+    );
+
+    if (!confirmar) return;
+
     setEstado("importing");
     setErrores([]);
     setResumenImportacion(null);
@@ -309,67 +318,40 @@ if (codigosBarras.has(codigoNormalizado)) {
         ultima_sincronizacion: sincronizacion,
       }));
 
+      const { data: eliminadosData, error: eliminarError } = await supabase
+        .from("articulos")
+        .delete()
+        .gte("id", 0)
+        .select("id");
+
+      if (eliminarError) {
+        throw eliminarError;
+      }
+
       const bloques = trocear(payload, 500);
-      let totalUpserts = 0;
+      let totalInsertados = 0;
 
       for (const bloque of bloques) {
-        const { error } = await supabase.from("articulos").upsert(bloque, {
-          onConflict: "codigo_barras",
-          ignoreDuplicates: false,
-        });
+        const { error } = await supabase.from("articulos").insert(bloque);
 
         if (error) {
           throw error;
         }
 
-        totalUpserts += bloque.length;
+        totalInsertados += bloque.length;
       }
-
-      const { data: desactivadosData1, error: desactivadosError1 } = await supabase
-        .from("articulos")
-        .update({
-          existencia: 0,
-          valor_fisico: 0,
-          activo: false,
-        })
-        .neq("ultima_sincronizacion", sincronizacion)
-        .select("id");
-
-      if (desactivadosError1) {
-        throw desactivadosError1;
-      }
-
-      const { data: desactivadosData2, error: desactivadosError2 } = await supabase
-        .from("articulos")
-        .update({
-          existencia: 0,
-          valor_fisico: 0,
-          activo: false,
-        })
-        .is("ultima_sincronizacion", null)
-        .select("id");
-
-      if (desactivadosError2) {
-        throw desactivadosError2;
-      }
-
-      const idsDesactivados = new Set<number>([
-        ...(desactivadosData1 || []).map((item) => item.id),
-        ...(desactivadosData2 || []).map((item) => item.id),
-      ]);
-
-      const totalDesactivados = idsDesactivados.size;
 
       setResumenImportacion({
         procesados: filas.length,
-        insertadosOActualizados: totalUpserts,
-        desactivados: totalDesactivados,
+        insertados: totalInsertados,
+        eliminados: eliminadosData?.length || 0,
         sincronizacion,
       });
 
       setEstado("success");
+
       alert(
-        "Inventario importado correctamente. Los articulos se actualizaron por código de barras."
+        "Inventario reemplazado correctamente. Se eliminaron los artículos anteriores y se cargó el nuevo inventario."
       );
     } catch (error: any) {
       console.error("Error importando inventario:", error);
@@ -444,6 +426,13 @@ if (codigosBarras.has(codigoNormalizado)) {
                       <li key={index}>• {error}</li>
                     ))}
                   </ul>
+
+                  {errores.length > 15 && (
+                    <p className="mt-3 text-sm font-semibold text-red-700">
+                      Hay más errores. Corrige primero los mostrados y vuelve a
+                      cargar el archivo.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -456,11 +445,11 @@ if (codigosBarras.has(codigoNormalizado)) {
                     Procesados: {resumenImportacion.procesados}
                   </p>
                   <p className="text-sm text-green-700">
-                    Insertados/actualizados:{" "}
-                    {resumenImportacion.insertadosOActualizados}
+                    Insertados: {resumenImportacion.insertados}
                   </p>
                   <p className="text-sm text-green-700">
-                    Registros puestos en 0: {resumenImportacion.desactivados}
+                    Artículos eliminados antes de importar:{" "}
+                    {resumenImportacion.eliminados}
                   </p>
                   <p className="text-sm text-green-700">
                     Sincronización:{" "}
@@ -479,7 +468,7 @@ if (codigosBarras.has(codigoNormalizado)) {
                 >
                   {estado === "importing"
                     ? "Importando a Supabase..."
-                    : "Importar a base de datos"}
+                    : "Reemplazar inventario"}
                 </button>
               </div>
             </div>
@@ -550,7 +539,7 @@ if (codigosBarras.has(codigoNormalizado)) {
                     ) : (
                       filas.slice(0, 50).map((fila, index) => (
                         <tr
-                          key={`${fila.idInterno}-${fila.ubicacion}-${index}`}
+                          key={`${fila.idInterno}-${fila.codigoBarras}-${index}`}
                           className="bg-[#f7f8fa]"
                         >
                           <td className="rounded-l-2xl px-4 py-4 text-sm font-semibold text-[#264f63]">
