@@ -201,22 +201,21 @@ export default function ConsultarSalidasPage() {
       return;
     }
 
-    const data = salidas.map((item) => ({
-      Fecha: item.fecha,
-      Hora: item.hora,
-      Folio: item.folio,
-      Ticket: item.ticket,
-      Solicitante: item.solicitante,
-      Area: item.area,
-      Codigo: item.codigo,
-      Nombre: item.nombre,
-      Descripcion: item.descripcion,
-      Tipo: item.tipo,
-      CantidadRetirada: item.cantidadRetirada,
-      CantidadAnterior: item.cantidadAnterior,
-      CantidadNueva: item.cantidadNueva,
-      ValorSalida: item.valorSalida,
-    }));
+   const data = salidas.map((item) => ({
+  "Ubicación de origen": "Ingenieria : Refacciones I",
+  "Ubicación de destino": "Ingenieria : Salidas",
+  "Subsidiaria": "Empresa principal : PRODUCTOS DIFO",
+
+  "Fecha": item.fecha,
+  "Nota": item.ticket, // 👈 aquí cambias Ticket → Nota
+
+  "Artículo": item.codigo, // ⚠️ usa código, no nombre (esto es crítico)
+  "Descripción": item.descripcion,
+
+  "Cantidad": item.cantidadRetirada,
+  "Unidades": "pzs", // 👈 fijo
+}));
+
 
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
