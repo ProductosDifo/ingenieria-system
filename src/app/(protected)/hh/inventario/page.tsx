@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
@@ -34,7 +34,10 @@ export default function HHInventarioPage() {
     inputRef.current?.focus();
   }, []);
 
+  // 🔴 BLOQUEAMOS búsqueda automática si ya hay artículo seleccionado
   useEffect(() => {
+    if (seleccionado) return;
+
     const timer = setTimeout(async () => {
       try {
         setCargando(true);
@@ -70,57 +73,58 @@ export default function HHInventarioPage() {
     }, 250);
 
     return () => clearTimeout(timer);
-  }, [busqueda]);
+  }, [busqueda, seleccionado]);
 
- const buscarPrimerResultado = async () => {
-  const texto = busqueda.trim();
+  const buscarPrimerResultado = async () => {
+    const texto = busqueda.trim();
 
-  if (!texto) return;
+    if (!texto) return;
 
-  try {
-    setCargando(true);
+    try {
+      setCargando(true);
 
-    const codigoLimpio = texto.split(" - ")[0].trim();
+      const codigoLimpio = texto.split(" - ")[0].trim();
 
-    const { data, error } = await supabase
-      .from("articulos")
-      .select(
-        "id, codigo_barras, nombre, descripcion, tipo, existencia, costo_unitario, valor_fisico"
-      )
-      .eq("codigo_barras", codigoLimpio)
-      .maybeSingle();
+      const { data, error } = await supabase
+        .from("articulos")
+        .select(
+          "id, codigo_barras, nombre, descripcion, tipo, existencia, costo_unitario, valor_fisico"
+        )
+        .eq("codigo_barras", codigoLimpio)
+        .maybeSingle();
 
-    if (error) {
-      console.error("Error buscando artículo exacto:", error);
-      alert("Error buscando el artículo.");
-      return;
+      if (error) {
+        console.error("Error buscando artículo exacto:", error);
+        alert("Error buscando el artículo.");
+        return;
+      }
+
+      if (data) {
+        const articulo = data as InventarioItem;
+
+        setSeleccionado(articulo);
+        setBusqueda(
+          `${articulo.codigo_barras || "SIN-CODIGO"} - ${articulo.nombre}`
+        );
+        setResultados([articulo]);
+        return;
+      }
+
+      const encontrado = resultados[0];
+
+      if (encontrado) {
+        setSeleccionado(encontrado);
+        setBusqueda(
+          `${encontrado.codigo_barras || "SIN-CODIGO"} - ${encontrado.nombre}`
+        );
+      } else {
+        setSeleccionado(null);
+        alert("No se encontró ningún artículo con ese código.");
+      }
+    } finally {
+      setCargando(false);
     }
-
-    if (data) {
-      const articulo = data as InventarioItem;
-
-      setSeleccionado(articulo);
-      setBusqueda(`${articulo.codigo_barras || "SIN-CODIGO"} - ${articulo.nombre}`);
-      setResultados([articulo]);
-      return;
-    }
-
-    const encontrado = resultados[0];
-
-    if (encontrado) {
-      setSeleccionado(encontrado);
-      setBusqueda(
-        `${encontrado.codigo_barras || "SIN-CODIGO"} - ${encontrado.nombre}`
-      );
-    } else {
-      setSeleccionado(null);
-      alert("No se encontró ningún artículo con ese código.");
-    }
-  } finally {
-    setCargando(false);
-  }
-};
-
+  };
 
   const seleccionarItem = (item: InventarioItem) => {
     setSeleccionado(item);
@@ -130,17 +134,19 @@ export default function HHInventarioPage() {
   const limpiar = () => {
     setBusqueda("");
     setSeleccionado(null);
+    setResultados([]);
     inputRef.current?.focus();
   };
 
   const existencia = Number(seleccionado?.existencia || 0);
   const costoUnitario = Number(seleccionado?.costo_unitario || 0);
   const valorFisico =
-    seleccionado?.valor_fisico !== null && seleccionado?.valor_fisico !== undefined
+    seleccionado?.valor_fisico !== null &&
+    seleccionado?.valor_fisico !== undefined
       ? Number(seleccionado.valor_fisico)
       : existencia * costoUnitario;
 
-  const mostrarResultados = busqueda.trim().length > 0;
+  const mostrarResultados = busqueda.trim().length > 0 && !seleccionado;
 
   return (
     <div className="min-h-screen bg-[#e7ecef] px-4 py-4">
@@ -171,6 +177,7 @@ export default function HHInventarioPage() {
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
+                  e.preventDefault();
                   buscarPrimerResultado();
                 }
               }}
@@ -199,7 +206,9 @@ export default function HHInventarioPage() {
         {mostrarResultados && (
           <div className="rounded-3xl bg-white p-4 shadow-md">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-[#111111]">Coincidencias</h2>
+              <h2 className="text-lg font-bold text-[#111111]">
+                Coincidencias
+              </h2>
               <span className="text-sm text-[#5f6b73]">
                 {cargando ? "..." : resultados.length}
               </span>
@@ -239,50 +248,23 @@ export default function HHInventarioPage() {
 
         {seleccionado && (
           <div className="rounded-3xl bg-white p-5 shadow-md">
-            <div className="mb-4">
-              <p className="text-sm font-semibold text-[#264f63]">
-                {seleccionado.codigo_barras || "SIN-CODIGO"}
-              </p>
-              <h2 className="mt-1 text-2xl font-bold text-[#111111]">
-                {seleccionado.nombre}
-              </h2>
-              <p className="mt-2 text-sm leading-relaxed text-[#5f6b73]">
-                {seleccionado.descripcion}
-              </p>
-            </div>
+            <p className="text-sm font-semibold text-[#264f63]">
+              {seleccionado.codigo_barras || "SIN-CODIGO"}
+            </p>
+            <h2 className="mt-1 text-2xl font-bold text-[#111111]">
+              {seleccionado.nombre}
+            </h2>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="rounded-2xl bg-[#f7f8fa] p-4">
-                <p className="text-xs uppercase tracking-wide text-[#5f6b73]">
-                  Tipo
-                </p>
-                <p className="mt-2 text-base font-bold text-[#111111]">
-                  {seleccionado.tipo || ""}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-[#f7f8fa] p-4">
-                <p className="text-xs uppercase tracking-wide text-[#5f6b73]">
-                  Existencia
-                </p>
+                <p className="text-xs text-[#5f6b73]">Existencia</p>
                 <p className="mt-2 text-2xl font-bold text-[#264f63]">
                   {existencia}
                 </p>
               </div>
 
               <div className="rounded-2xl bg-[#f7f8fa] p-4">
-                <p className="text-xs uppercase tracking-wide text-[#5f6b73]">
-                  Costo unitario
-                </p>
-                <p className="mt-2 text-base font-bold text-[#111111]">
-                  {formatCurrency(costoUnitario)}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-[#f7f8fa] p-4">
-                <p className="text-xs uppercase tracking-wide text-[#5f6b73]">
-                  Valor físico
-                </p>
+                <p className="text-xs text-[#5f6b73]">Valor físico</p>
                 <p className="mt-2 text-base font-bold text-[#111111]">
                   {formatCurrency(valorFisico)}
                 </p>
@@ -292,17 +274,8 @@ export default function HHInventarioPage() {
         )}
 
         <div className="grid grid-cols-2 gap-3 pt-2">
-          <Link
-            href="/hh"
-            className="rounded-2xl border border-[#cfd4d8] bg-white px-4 py-4 text-center text-base font-semibold text-[#264f63] shadow-sm"
-          >
-            Menú HH
-          </Link>
-
-          <Link
-            href="/hh/salida"
-            className="rounded-2xl bg-[#264f63] px-4 py-4 text-center text-base font-semibold text-white shadow-sm"
-          >
+          <Link href="/hh" className="btn">Menú HH</Link>
+          <Link href="/hh/salida" className="btn-primary">
             Ir a salidas
           </Link>
         </div>

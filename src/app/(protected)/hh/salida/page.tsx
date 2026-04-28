@@ -87,6 +87,8 @@ export default function HHSalidaPage() {
   }, []);
 
   useEffect(() => {
+    if (articuloSeleccionado) return;
+
     const timer = setTimeout(async () => {
       try {
         setCargandoArticulos(true);
@@ -121,7 +123,7 @@ export default function HHSalidaPage() {
     }, 250);
 
     return () => clearTimeout(timer);
-  }, [busquedaArticulo]);
+  }, [busquedaArticulo, articuloSeleccionado]);
 
   const articulosDisponibles = useMemo(() => {
     return articulos.filter((articulo) => {
@@ -163,55 +165,56 @@ export default function HHSalidaPage() {
     setBusquedaArticulo(
       `${articulo.codigo_barras || "SIN-CODIGO"} - ${articulo.nombre}`
     );
+    setArticulos([articulo]);
     setMostrarArticulos(false);
   };
 
- const buscarPrimerArticulo = async () => {
-  const texto = busquedaArticulo.trim();
+  const buscarPrimerArticulo = async () => {
+    const texto = busquedaArticulo.trim();
 
-  if (!texto) return;
+    if (!texto) return;
 
-  try {
-    setCargandoArticulos(true);
+    try {
+      setCargandoArticulos(true);
 
-    const codigoLimpio = texto.split(" - ")[0].trim();
+      const codigoLimpio = texto.split(" - ")[0].trim();
 
-    const { data, error } = await supabase
-      .from("articulos")
-      .select("id, codigo_barras, nombre, descripcion, tipo, existencia")
-      .eq("codigo_barras", codigoLimpio)
-      .gt("existencia", 0)
-      .maybeSingle();
+      const { data, error } = await supabase
+        .from("articulos")
+        .select("id, codigo_barras, nombre, descripcion, tipo, existencia")
+        .eq("codigo_barras", codigoLimpio)
+        .gt("existencia", 0)
+        .maybeSingle();
 
-    if (error) {
-      console.error("Error buscando artículo exacto HH:", error);
-      alert("Error buscando el artículo.");
-      return;
+      if (error) {
+        console.error("Error buscando artículo exacto HH:", error);
+        alert("Error buscando el artículo.");
+        return;
+      }
+
+      if (data) {
+        seleccionarArticulo(data as Articulo);
+        return;
+      }
+
+      const encontrado = articulosFiltrados[0];
+
+      if (encontrado) {
+        seleccionarArticulo(encontrado);
+      } else {
+        setArticuloSeleccionado(null);
+        alert("No se encontró ningún artículo con ese código.");
+      }
+    } finally {
+      setCargandoArticulos(false);
     }
-
-    if (data) {
-      seleccionarArticulo(data as Articulo);
-      return;
-    }
-
-    const encontrado = articulosFiltrados[0];
-
-    if (encontrado) {
-      seleccionarArticulo(encontrado);
-    } else {
-      setArticuloSeleccionado(null);
-      alert("No se encontró ningún artículo con ese código.");
-    }
-  } finally {
-    setCargandoArticulos(false);
-  }
-};
-
+  };
 
   const limpiarCapturaArticulo = () => {
     setBusquedaArticulo("");
     setArticuloSeleccionado(null);
     setCantidadSalida("");
+    setArticulos([]);
     setMostrarArticulos(false);
     inputRef.current?.focus();
   };
@@ -499,15 +502,20 @@ export default function HHSalidaPage() {
               onChange={(e) => {
                 setBusquedaArticulo(e.target.value);
                 setMostrarArticulos(true);
+
                 if (articuloSeleccionado) {
                   setArticuloSeleccionado(null);
+                  setArticulos([]);
                 }
               }}
               onFocus={() => {
                 if (articuloBlurTimeout.current) {
                   clearTimeout(articuloBlurTimeout.current);
                 }
-                setMostrarArticulos(true);
+
+                if (!articuloSeleccionado) {
+                  setMostrarArticulos(true);
+                }
               }}
               onBlur={() => {
                 articuloBlurTimeout.current = setTimeout(() => {
@@ -516,6 +524,7 @@ export default function HHSalidaPage() {
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
+                  e.preventDefault();
                   buscarPrimerArticulo();
                 }
               }}
@@ -539,7 +548,7 @@ export default function HHSalidaPage() {
               </button>
             </div>
 
-            {mostrarArticulos && (
+            {mostrarArticulos && !articuloSeleccionado && (
               <div className="absolute left-0 right-0 top-[118px] z-20 max-h-80 overflow-y-auto rounded-2xl border border-[#d7dde1] bg-white shadow-xl">
                 {cargandoArticulos ? (
                   <div className="px-4 py-4 text-sm text-[#5f6b73]">
@@ -672,7 +681,8 @@ export default function HHSalidaPage() {
                         {linea.nombre}
                       </p>
                       <p className="mt-1 text-sm text-[#5f6b73]">
-                        Cantidad: {linea.cantidadSalida} · Nueva: {linea.cantidadNueva}
+                        Cantidad: {linea.cantidadSalida} · Nueva:{" "}
+                        {linea.cantidadNueva}
                       </p>
                     </div>
 
