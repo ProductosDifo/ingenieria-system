@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
-import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
 
 type SalidaLinea = {
@@ -14,6 +13,7 @@ type SalidaLinea = {
   solicitante: string;
   area: string;
   codigo: string;
+  idInterno: string;
   nombre: string;
   descripcion: string;
   tipo: string;
@@ -35,9 +35,11 @@ type SalidaDetalleRaw = {
   created_at: string | null;
   articulo:
     | {
+        id_interno: string | number | null;
         costo_unitario: number | null;
       }
     | {
+        id_interno: string | number | null;
         costo_unitario: number | null;
       }[]
     | null;
@@ -101,6 +103,39 @@ function formatFolio(folio: number) {
   return `SAL-${String(folio).padStart(3, "0")}`;
 }
 
+function limpiarCSV(value: string | number | null | undefined) {
+  const text = String(value ?? "");
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function descargarCSV(filename: string, rows: Record<string, string | number>[]) {
+  if (rows.length === 0) return;
+
+  const headers = Object.keys(rows[0]);
+
+  const csv = [
+    headers.map(limpiarCSV).join(","),
+    ...rows.map((row) =>
+      headers.map((header) => limpiarCSV(row[header])).join(",")
+    ),
+  ].join("\n");
+
+  const blob = new Blob(["\uFEFF" + csv], {
+    type: "text/csv;charset=utf-8;",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 export default function ConsultarSalidasPage() {
   const [fechaSeleccionada, setFechaSeleccionada] = useState(getTodayForInput());
   const [salidas, setSalidas] = useState<SalidaLinea[]>([]);
@@ -127,6 +162,7 @@ export default function ConsultarSalidasPage() {
           cantidad_nueva,
           created_at,
           articulo:articulos!salidas_detalle_articulo_id_fkey (
+            id_interno,
             costo_unitario
           ),
           salida:salidas!salidas_detalle_salida_id_fkey!inner (
@@ -156,8 +192,8 @@ export default function ConsultarSalidasPage() {
 
         const cantidadRetirada = Number(item.cantidad_salida || 0);
         const costoUnitario = Number(articulo?.costo_unitario || 0);
-
-        const fechaBase = salida?.fecha || item.created_at || new Date().toISOString();
+        const fechaBase =
+          salida?.fecha || item.created_at || new Date().toISOString();
 
         return {
           id: item.id,
@@ -168,6 +204,10 @@ export default function ConsultarSalidasPage() {
           solicitante: salida?.solicitante || "",
           area: salida?.area || "",
           codigo: item.codigo_barras || "",
+          idInterno:
+            articulo?.id_interno !== null && articulo?.id_interno !== undefined
+              ? String(articulo.id_interno)
+              : "",
           nombre: item.nombre || "",
           descripcion: item.descripcion || "",
           tipo: item.tipo || "",
@@ -195,36 +235,33 @@ export default function ConsultarSalidasPage() {
     return salidas.reduce((acc, item) => acc + item.valorSalida, 0);
   }, [salidas]);
 
-  const exportarExcel = () => {
+  const exportarCSV = () => {
     if (salidas.length === 0) {
       alert("No hay registros para exportar en la fecha seleccionada.");
       return;
     }
 
-   const data = salidas.map((item) => ({
-  "Ubicación de origen": "Ingenieria : Refacciones I",
-  "Ubicación de destino": "Ingenieria : Salidas",
-  "Subsidiaria": "Empresa principal : PRODUCTOS DIFO",
+    const sinIdInterno = salidas.filter((item) => !item.idInterno);
 
-  "Fecha": item.fecha,
-  "Nota": item.ticket, // 👈 aquí cambias Ticket → Nota
+    if (sinIdInterno.length > 0) {
+      alert(
+        "Hay artículos sin ID interno de NetSuite. No se puede generar el CSV hasta corregirlos."
+      );
+      return;
+    }
 
-  "Artículo": item.codigo, // ⚠️ usa código, no nombre (esto es crítico)
-  "Descripción": item.descripcion,
+    const data = salidas.map((item) => ({
+      "ID externo": item.folio,
+      "ID interno": item.idInterno,
+      "Cantidad retirada": item.cantidadRetirada,
+      "Ubicación origen": "Ingenieria : Refacciones I",
+      "Ubicación destino": "Ingenieria : Salidas",
+      Subsidiaria: "Empresa principal : PRODUCTOS DIFO",
+      Fecha: item.fecha,
+      Nota: item.ticket,
+    }));
 
-  "Cantidad": item.cantidadRetirada,
-  "Unidades": "pzs", // 👈 fijo
-}));
-
-
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Salidas");
-    XLSX.writeFile(
-      workbook,
-      `salidas_${fechaSeleccionada.replaceAll("-", "")}.xlsx`
-    );
+    descargarCSV(`salidas_${fechaSeleccionada.replaceAll("-", "")}.csv`, data);
   };
 
   return (
@@ -239,7 +276,7 @@ export default function ConsultarSalidasPage() {
             </h1>
             <p className="mt-1 text-sm text-[#5f6b73]">
               Consulta todas las líneas de salida del día seleccionado y exporta
-              a Excel.
+              a CSV.
             </p>
           </header>
 
@@ -281,10 +318,10 @@ export default function ConsultarSalidasPage() {
 
                 <div className="flex items-end">
                   <button
-                    onClick={exportarExcel}
+                    onClick={exportarCSV}
                     className="w-full rounded-2xl bg-[#264f63] px-6 py-3 font-semibold text-white transition hover:bg-[#2f5b72]"
                   >
-                    Exportar a Excel
+                    Exportar a CSV
                   </button>
                 </div>
               </div>
@@ -311,6 +348,7 @@ export default function ConsultarSalidasPage() {
                       <th className="px-4 py-2">Solicitante</th>
                       <th className="px-4 py-2">Área</th>
                       <th className="px-4 py-2">Código</th>
+                      <th className="px-4 py-2">ID interno</th>
                       <th className="px-4 py-2">Nombre</th>
                       <th className="px-4 py-2">Descripción</th>
                       <th className="px-4 py-2">Tipo</th>
@@ -325,7 +363,7 @@ export default function ConsultarSalidasPage() {
                     {loading ? (
                       <tr>
                         <td
-                          colSpan={14}
+                          colSpan={15}
                           className="rounded-2xl bg-[#f7f8fa] px-4 py-6 text-center text-sm text-[#5f6b73]"
                         >
                           Cargando salidas...
@@ -334,7 +372,7 @@ export default function ConsultarSalidasPage() {
                     ) : salidas.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={14}
+                          colSpan={15}
                           className="rounded-2xl bg-[#f7f8fa] px-4 py-6 text-center text-sm text-[#5f6b73]"
                         >
                           No hay salidas registradas para la fecha seleccionada.
@@ -363,6 +401,9 @@ export default function ConsultarSalidasPage() {
                           </td>
                           <td className="px-4 py-4 text-sm font-semibold text-[#264f63]">
                             {item.codigo}
+                          </td>
+                          <td className="px-4 py-4 text-sm font-semibold text-[#111111]">
+                            {item.idInterno || "SIN ID"}
                           </td>
                           <td className="px-4 py-4 text-sm text-[#111111]">
                             {item.nombre}
