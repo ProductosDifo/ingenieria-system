@@ -1,3 +1,4 @@
+Sí, hay que ajustarlo. Te faltaba ubicacion en el type y conviene mejorar el bloqueo de doble clic, trim() en observaciones y lectura robusta del folio.
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -17,6 +18,7 @@ type Registro = {
   nombre: string;
   descripcion: string | null;
   tipo: string | null;
+  ubicacion: string | null;
   cantidad_original: number;
   cantidad_devuelta: number;
   cantidad_pendiente: number;
@@ -28,6 +30,7 @@ function calcularDiasAtraso(fechaBase: string) {
   const diff = Math.floor(
     (hoy.getTime() - fecha.getTime()) / (1000 * 60 * 60 * 24)
   );
+
   return diff > 0 ? diff : 0;
 }
 
@@ -65,9 +68,12 @@ export default function HHDevolucionPage() {
       try {
         setCargando(true);
 
-        const { data, error } = await supabase.rpc("buscar_registros_devolucion", {
-          p_busqueda: busqueda.trim() || null,
-        });
+        const { data, error } = await supabase.rpc(
+          "buscar_registros_devolucion",
+          {
+            p_busqueda: busqueda.trim() || null,
+          }
+        );
 
         if (error) {
           console.error("Error cargando registros HH de devolución:", error);
@@ -75,7 +81,7 @@ export default function HHDevolucionPage() {
           return;
         }
 
-        setRegistros(data || []);
+        setRegistros((data || []) as Registro[]);
       } finally {
         setCargando(false);
       }
@@ -88,8 +94,11 @@ export default function HHDevolucionPage() {
 
   const cantidadPendiente = registroSeleccionado?.cantidad_pendiente ?? 0;
 
+  const esHerramienta =
+    registroSeleccionado?.tipo?.trim().toLowerCase() === "herramienta";
+
   const diasAtraso =
-    registroSeleccionado?.tipo === "Herramienta"
+    registroSeleccionado && esHerramienta
       ? calcularDiasAtraso(registroSeleccionado.fecha)
       : 0;
 
@@ -97,7 +106,7 @@ export default function HHDevolucionPage() {
     setRegistroSeleccionado(registro);
     setBusqueda(
       `${formatearFolioSalida(registro.folio)} - ${
-        registro.codigo_barras || ""
+        registro.codigo_barras || "SIN-CODIGO"
       } - ${registro.nombre}`
     );
     setCantidadDevolver("");
@@ -110,6 +119,7 @@ export default function HHDevolucionPage() {
     if (!busqueda.trim()) return;
 
     const encontrado = registrosFiltrados[0];
+
     if (encontrado) {
       seleccionarRegistro(encontrado);
     } else {
@@ -128,7 +138,7 @@ export default function HHDevolucionPage() {
       return;
     }
 
-    setRegistros(data || []);
+    setRegistros((data || []) as Registro[]);
   };
 
   const limpiar = () => {
@@ -142,6 +152,8 @@ export default function HHDevolucionPage() {
   };
 
   const handleRegistrarDevolucion = async () => {
+    if (guardando) return;
+
     if (!registroSeleccionado) {
       alert("Debes seleccionar un registro válido.");
       return;
@@ -165,7 +177,7 @@ export default function HHDevolucionPage() {
       const { data, error } = await supabase.rpc("registrar_devolucion", {
         p_salida_detalle_id: registroSeleccionado.salida_detalle_id,
         p_cantidad_devuelta: cantidad,
-        p_observaciones: observaciones || null,
+        p_observaciones: observaciones.trim() || null,
       });
 
       if (error) {
@@ -174,8 +186,13 @@ export default function HHDevolucionPage() {
         return;
       }
 
-      const resultado = data?.[0];
-      const folio = resultado?.out_folio ?? null;
+      const resultado = Array.isArray(data) ? data[0] : data;
+      const folio =
+        resultado?.out_folio ??
+        resultado?.folio ??
+        resultado?.folio_devolucion ??
+        null;
+
       setFolioDevolucion(folio);
 
       const folioFormateado = formatearFolioDevolucion(folio);
@@ -219,6 +236,7 @@ export default function HHDevolucionPage() {
               onChange={(e) => {
                 setBusqueda(e.target.value);
                 setMostrarResultados(true);
+
                 if (registroSeleccionado) {
                   setRegistroSeleccionado(null);
                 }
@@ -234,6 +252,7 @@ export default function HHDevolucionPage() {
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
+                  e.preventDefault();
                   buscarPrimerResultado();
                 }
               }}
@@ -269,7 +288,8 @@ export default function HHDevolucionPage() {
                   </div>
                 ) : (
                   registrosFiltrados.map((registro) => {
-                    const pendiente = registro.cantidad_pendiente;
+                    const esHerramientaRegistro =
+                      registro.tipo?.trim().toLowerCase() === "herramienta";
 
                     return (
                       <button
@@ -284,30 +304,35 @@ export default function HHDevolucionPage() {
                               {formatearFolioSalida(registro.folio)} ·{" "}
                               {registro.codigo_barras || "SIN-CODIGO"}
                             </p>
+
                             <p className="mt-1 text-base font-semibold text-[#111111]">
                               {registro.nombre}
                             </p>
+
                             <p className="mt-1 text-sm text-[#5f6b73]">
                               {registro.solicitante} · {registro.area}
+                            </p>
+
+                            <p className="mt-2 inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
+                              {registro.ubicacion || "SIN UBICACIÓN"}
                             </p>
                           </div>
 
                           <div className="text-right">
                             <span
                               className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                registro.tipo === "Herramienta"
+                                esHerramientaRegistro
                                   ? "bg-[#264f63] text-white"
                                   : "bg-[#eef2f4] text-[#264f63]"
                               }`}
                             >
-                              {registro.tipo === "Herramienta"
-                                ? "Préstamo"
-                                : "Salida"}
+                              {esHerramientaRegistro ? "Préstamo" : "Salida"}
                             </span>
+
                             <p className="mt-2 text-xs text-[#5f6b73]">
                               Pendiente:{" "}
                               <span className="font-semibold text-[#111111]">
-                                {pendiente}
+                                {registro.cantidad_pendiente}
                               </span>
                             </p>
                           </div>
@@ -326,11 +351,17 @@ export default function HHDevolucionPage() {
             <p className="text-sm font-semibold text-[#264f63]">
               {formatearFolioSalida(registroSeleccionado.folio)}
             </p>
+
             <h2 className="mt-1 text-2xl font-bold text-[#111111]">
               {registroSeleccionado.nombre}
             </h2>
+
             <p className="mt-2 text-sm leading-relaxed text-[#5f6b73]">
-              {registroSeleccionado.descripcion}
+              {registroSeleccionado.descripcion || ""}
+            </p>
+
+            <p className="mt-2 inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
+              {registroSeleccionado.ubicacion || "SIN UBICACIÓN"}
             </p>
 
             <div className="mt-4 grid grid-cols-2 gap-3">
@@ -339,7 +370,7 @@ export default function HHDevolucionPage() {
                   Código
                 </p>
                 <p className="mt-2 text-base font-bold text-[#111111]">
-                  {registroSeleccionado.codigo_barras || ""}
+                  {registroSeleccionado.codigo_barras || "SIN-CODIGO"}
                 </p>
               </div>
 
@@ -366,21 +397,17 @@ export default function HHDevolucionPage() {
                   Movimiento
                 </p>
                 <p className="mt-2 text-base font-bold text-[#111111]">
-                  {registroSeleccionado.tipo === "Herramienta"
-                    ? "Préstamo"
-                    : "Salida"}
+                  {esHerramienta ? "Préstamo" : "Salida"}
                 </p>
               </div>
             </div>
 
             <div className="mt-4 rounded-2xl bg-[#f7f8fa] p-4">
               <p className="text-sm text-[#5f6b73]">
-                {registroSeleccionado.tipo === "Herramienta"
-                  ? "Días de atraso"
-                  : "Devolución de sobrante"}
+                {esHerramienta ? "Días desde la salida" : "Devolución"}
               </p>
               <p className="mt-2 text-2xl font-bold text-[#264f63]">
-                {registroSeleccionado.tipo === "Herramienta" ? diasAtraso : "Sí"}
+                {esHerramienta ? diasAtraso : "Sobrante"}
               </p>
             </div>
 
@@ -395,7 +422,8 @@ export default function HHDevolucionPage() {
                   value={cantidadDevolver}
                   onChange={(e) => setCantidadDevolver(e.target.value)}
                   placeholder="Cantidad"
-                  className="min-h-[56px] w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 text-base text-[#111111] outline-none"
+                  disabled={guardando}
+                  className="min-h-[56px] w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 text-base text-[#111111] outline-none disabled:bg-[#f7f8fa] disabled:opacity-70"
                 />
               </div>
 
@@ -408,7 +436,8 @@ export default function HHDevolucionPage() {
                   value={observaciones}
                   onChange={(e) => setObservaciones(e.target.value)}
                   placeholder="Observaciones"
-                  className="min-h-[56px] w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 text-base text-[#111111] outline-none"
+                  disabled={guardando}
+                  className="min-h-[56px] w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 text-base text-[#111111] outline-none disabled:bg-[#f7f8fa] disabled:opacity-70"
                 />
               </div>
 
@@ -422,7 +451,7 @@ export default function HHDevolucionPage() {
               <button
                 onClick={handleRegistrarDevolucion}
                 disabled={guardando}
-                className="min-h-[56px] w-full rounded-2xl bg-[#264f63] px-4 text-base font-semibold text-white disabled:opacity-50"
+                className="min-h-[56px] w-full rounded-2xl bg-[#264f63] px-4 text-base font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {guardando ? "Registrando..." : "Registrar devolución"}
               </button>
@@ -442,3 +471,4 @@ export default function HHDevolucionPage() {
     </div>
   );
 }
+

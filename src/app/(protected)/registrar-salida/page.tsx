@@ -69,9 +69,11 @@ export default function RegistrarSalidaPage() {
   const [busquedaArticulo, setBusquedaArticulo] = useState("");
   const [articuloSeleccionado, setArticuloSeleccionado] =
     useState<Articulo | null>(null);
+
   const [cantidadSalida, setCantidadSalida] = useState("");
   const [lineas, setLineas] = useState<LineaSalida[]>([]);
   const [articulos, setArticulos] = useState<Articulo[]>([]);
+  const [cargandoArticulos, setCargandoArticulos] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [folioGenerado, setFolioGenerado] = useState<number | null>(null);
 
@@ -80,29 +82,49 @@ export default function RegistrarSalidaPage() {
   }, []);
 
   useEffect(() => {
-    async function cargarArticulos() {
-      const { data, error } = await supabase
-        .from("articulos")
-        .select(
-          "id, codigo_barras, nombre, descripcion, tipo, ubicacion, existencia, costo_unitario"
-        )
-        .gt("existencia", 0)
-        .order("nombre", { ascending: true });
+    if (articuloSeleccionado) return;
 
-      if (error) {
-        console.error("Error cargando artículos:", error);
-        return;
+    const timer = setTimeout(async () => {
+      try {
+        setCargandoArticulos(true);
+
+        const texto = busquedaArticulo.trim();
+
+        let query = supabase
+          .from("articulos")
+          .select(
+            "id, codigo_barras, nombre, descripcion, tipo, ubicacion, existencia, costo_unitario"
+          )
+          .gt("existencia", 0)
+          .order("nombre", { ascending: true })
+          .limit(50);
+
+        if (texto) {
+          query = query.or(
+            `codigo_barras.ilike.%${texto}%,nombre.ilike.%${texto}%,descripcion.ilike.%${texto}%,tipo.ilike.%${texto}%,ubicacion.ilike.%${texto}%`
+          );
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error("Error cargando artículos:", error);
+          setArticulos([]);
+          return;
+        }
+
+        setArticulos((data || []) as Articulo[]);
+      } finally {
+        setCargandoArticulos(false);
       }
+    }, 250);
 
-      setArticulos(data || []);
-    }
-
-    cargarArticulos();
-  }, []);
+    return () => clearTimeout(timer);
+  }, [busquedaArticulo, articuloSeleccionado]);
 
   const articulosDisponibles = useMemo(() => {
     return articulos.filter((articulo) => {
-      const yaAgregado = lineas.some((l) => l.articuloId === articulo.id);
+      const yaAgregado = lineas.some((linea) => linea.articuloId === articulo.id);
       return !yaAgregado;
     });
   }, [articulos, lineas]);
@@ -122,21 +144,6 @@ export default function RegistrarSalidaPage() {
 
     return areasMock.filter((item) => item.toLowerCase().includes(query));
   }, [area]);
-
-  const articulosFiltrados = useMemo(() => {
-    const query = busquedaArticulo.trim().toLowerCase();
-    if (!query) return articulosDisponibles;
-
-    return articulosDisponibles.filter((articulo) => {
-      return (
-        (articulo.codigo_barras || "").toLowerCase().includes(query) ||
-        articulo.nombre.toLowerCase().includes(query) ||
-        (articulo.descripcion || "").toLowerCase().includes(query) ||
-        (articulo.tipo || "").toLowerCase().includes(query) ||
-        (articulo.ubicacion || "").toLowerCase().includes(query)
-      );
-    });
-  }, [busquedaArticulo, articulosDisponibles]);
 
   const limpiarCapturaArticulo = () => {
     setBusquedaArticulo("");
@@ -198,8 +205,6 @@ export default function RegistrarSalidaPage() {
       return;
     }
 
-    const valorSalida = costoUnitario * cantidad;
-
     const nuevaLinea: LineaSalida = {
       articuloId: articuloSeleccionado.id,
       codigo: articuloSeleccionado.codigo_barras || "",
@@ -211,7 +216,7 @@ export default function RegistrarSalidaPage() {
       costoUnitario,
       cantidadSalida: cantidad,
       cantidadNueva: cantidadActual - cantidad,
-      valorSalida,
+      valorSalida: costoUnitario * cantidad,
     };
 
     setLineas((prev) => [...prev, nuevaLinea]);
@@ -229,14 +234,15 @@ export default function RegistrarSalidaPage() {
         "id, codigo_barras, nombre, descripcion, tipo, ubicacion, existencia, costo_unitario"
       )
       .gt("existencia", 0)
-      .order("nombre", { ascending: true });
+      .order("nombre", { ascending: true })
+      .limit(50);
 
     if (error) {
       console.error("Error recargando artículos:", error);
       return;
     }
 
-    setArticulos(data || []);
+    setArticulos((data || []) as Articulo[]);
   };
 
   const handleRegistrarSalida = async () => {
@@ -281,7 +287,9 @@ export default function RegistrarSalidaPage() {
       setFolioGenerado(folio);
 
       const folioFormateado =
-        folio !== null ? `SAL-${String(folio).padStart(3, "0")}` : "";
+        folio !== null && folio !== undefined
+          ? `SAL-${String(folio).padStart(3, "0")}`
+          : "";
 
       alert(
         folioFormateado
@@ -497,18 +505,22 @@ export default function RegistrarSalidaPage() {
                       setMostrarArticulos(false);
                     }, 150);
                   }}
-                  placeholder="Escribe código, nombre o ubicación"
+                  placeholder="Escribe código, nombre, descripción, tipo o ubicación"
                   className="w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 py-3 outline-none"
                 />
 
                 {mostrarArticulos && (
                   <div className="absolute z-20 mt-2 max-h-80 w-full overflow-y-auto rounded-2xl border border-[#d7dde1] bg-white shadow-xl">
-                    {articulosFiltrados.length === 0 ? (
+                    {cargandoArticulos ? (
+                      <div className="px-4 py-4 text-sm text-[#5f6b73]">
+                        Cargando artículos...
+                      </div>
+                    ) : articulosDisponibles.length === 0 ? (
                       <div className="px-4 py-4 text-sm text-[#5f6b73]">
                         No se encontraron artículos.
                       </div>
                     ) : (
-                      articulosFiltrados.map((articulo) => (
+                      articulosDisponibles.map((articulo) => (
                         <button
                           key={articulo.id}
                           type="button"
@@ -526,13 +538,15 @@ export default function RegistrarSalidaPage() {
                                 {articulo.descripcion || "-"}
                               </p>
 
-                              <p className="mt-1 text-xs text-[#5f6b73]">
-                                Tipo: {articulo.tipo || "-"}
-                              </p>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <span className="inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
+                                  {articulo.tipo || "SIN TIPO"}
+                                </span>
 
-                              <p className="mt-2 inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
-                                {articulo.ubicacion || "SIN UBICACIÓN"}
-                              </p>
+                                <span className="inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
+                                  {articulo.ubicacion || "SIN UBICACIÓN"}
+                                </span>
+                              </div>
                             </div>
 
                             <div className="text-right">
@@ -540,7 +554,7 @@ export default function RegistrarSalidaPage() {
                                 Existencia
                               </p>
                               <p className="text-sm font-semibold text-[#111111]">
-                                {articulo.existencia || 0}
+                                {articulo.existencia ?? 0}
                               </p>
                             </div>
                           </div>
@@ -684,7 +698,7 @@ export default function RegistrarSalidaPage() {
                       lineas.map((linea) => (
                         <tr key={linea.articuloId} className="bg-[#f7f8fa]">
                           <td className="rounded-l-2xl px-4 py-4 text-sm font-semibold text-[#264f63]">
-                            {linea.codigo}
+                            {linea.codigo || "SIN-CODIGO"}
                           </td>
 
                           <td className="px-4 py-4 text-sm text-[#111111]">

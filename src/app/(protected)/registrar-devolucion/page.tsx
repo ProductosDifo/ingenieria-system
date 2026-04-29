@@ -72,7 +72,7 @@ export default function RegistrarDevolucionPage() {
     setRegistroSeleccionado(registro);
     setBusqueda(
       `${formatearFolioSalida(registro.folio)} - ${
-        registro.codigo_barras || ""
+        registro.codigo_barras || "SIN-CODIGO"
       } - ${registro.nombre}`
     );
     setCantidadDevolver("");
@@ -95,6 +95,8 @@ export default function RegistrarDevolucionPage() {
   };
 
   const handleRegistrarDevolucion = async () => {
+    if (guardando) return;
+
     if (!registroSeleccionado) {
       alert("Debes seleccionar un registro válido.");
       return;
@@ -118,7 +120,7 @@ export default function RegistrarDevolucionPage() {
       const { data, error } = await supabase.rpc("registrar_devolucion", {
         p_salida_detalle_id: registroSeleccionado.salida_detalle_id,
         p_cantidad_devuelta: cantidad,
-        p_observaciones: observaciones || null,
+        p_observaciones: observaciones.trim() || null,
       });
 
       if (error) {
@@ -127,8 +129,10 @@ export default function RegistrarDevolucionPage() {
         return;
       }
 
-      const resultado = data?.[0];
-      const folio = resultado?.out_folio ?? null;
+      const resultado = Array.isArray(data) ? data[0] : data;
+      const folio =
+        resultado?.out_folio ?? resultado?.folio ?? resultado?.folio_devolucion ?? null;
+
       setFolioDevolucion(folio);
 
       const folioFormateado = formatearFolioDevolucion(folio);
@@ -183,6 +187,7 @@ export default function RegistrarDevolucionPage() {
                   onChange={(e) => {
                     setBusqueda(e.target.value);
                     setMostrarResultados(true);
+
                     if (registroSeleccionado) {
                       setRegistroSeleccionado(null);
                     }
@@ -426,7 +431,8 @@ export default function RegistrarDevolucionPage() {
                     value={cantidadDevolver}
                     onChange={(e) => setCantidadDevolver(e.target.value)}
                     placeholder="Cantidad"
-                    className="w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 py-3 outline-none"
+                    disabled={!registroSeleccionado || guardando}
+                    className="w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 py-3 outline-none disabled:cursor-not-allowed disabled:bg-[#f7f8fa] disabled:opacity-70"
                   />
                 </div>
 
@@ -439,7 +445,8 @@ export default function RegistrarDevolucionPage() {
                     value={observaciones}
                     onChange={(e) => setObservaciones(e.target.value)}
                     placeholder="Observaciones de devolución"
-                    className="w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 py-3 outline-none"
+                    disabled={!registroSeleccionado || guardando}
+                    className="w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 py-3 outline-none disabled:cursor-not-allowed disabled:bg-[#f7f8fa] disabled:opacity-70"
                   />
                 </div>
               </div>
@@ -447,8 +454,8 @@ export default function RegistrarDevolucionPage() {
               <div className="mt-6">
                 <button
                   onClick={handleRegistrarDevolucion}
-                  disabled={guardando}
-                  className="rounded-2xl bg-[#264f63] px-6 py-3 font-semibold text-white transition hover:bg-[#2f5b72] disabled:opacity-50"
+                  disabled={guardando || !registroSeleccionado}
+                  className="rounded-2xl bg-[#264f63] px-6 py-3 font-semibold text-white transition hover:bg-[#2f5b72] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {guardando ? "Registrando..." : "Registrar devolución"}
                 </button>

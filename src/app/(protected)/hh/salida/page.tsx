@@ -55,10 +55,7 @@ export default function HHSalidaPage() {
   const areaBlurTimeout = useRef<NodeJS.Timeout | null>(null);
   const articuloBlurTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  const [fecha] = useState(() => {
-    const now = new Date();
-    return now.toLocaleString("es-MX");
-  });
+  const [fecha] = useState(() => new Date().toLocaleString("es-MX"));
 
   const [solicitante, setSolicitante] = useState("");
   const [ticket, setTicket] = useState("");
@@ -74,6 +71,7 @@ export default function HHSalidaPage() {
 
   const [articuloSeleccionado, setArticuloSeleccionado] =
     useState<Articulo | null>(null);
+
   const [cantidadSalida, setCantidadSalida] = useState("");
   const [lineas, setLineas] = useState<LineaSalida[]>([]);
   const [guardando, setGuardando] = useState(false);
@@ -95,6 +93,8 @@ export default function HHSalidaPage() {
       try {
         setCargandoArticulos(true);
 
+        const texto = busquedaArticulo.trim();
+
         let query = supabase
           .from("articulos")
           .select(
@@ -102,9 +102,7 @@ export default function HHSalidaPage() {
           )
           .gt("existencia", 0)
           .order("nombre", { ascending: true })
-          .limit(30);
-
-        const texto = busquedaArticulo.trim();
+          .limit(50);
 
         if (texto) {
           query = query.or(
@@ -131,7 +129,7 @@ export default function HHSalidaPage() {
 
   const articulosDisponibles = useMemo(() => {
     return articulos.filter((articulo) => {
-      const yaAgregado = lineas.some((l) => l.articuloId === articulo.id);
+      const yaAgregado = lineas.some((linea) => linea.articuloId === articulo.id);
       return !yaAgregado;
     });
   }, [articulos, lineas]);
@@ -139,6 +137,7 @@ export default function HHSalidaPage() {
   const solicitantesFiltrados = useMemo(() => {
     const query = solicitante.trim().toLowerCase();
     if (!query) return solicitantesMock;
+
     return solicitantesMock.filter((item) =>
       item.toLowerCase().includes(query)
     );
@@ -147,12 +146,9 @@ export default function HHSalidaPage() {
   const areasFiltradas = useMemo(() => {
     const query = area.trim().toLowerCase();
     if (!query) return areasMock;
+
     return areasMock.filter((item) => item.toLowerCase().includes(query));
   }, [area]);
-
-  const articulosFiltrados = useMemo(() => {
-    return articulosDisponibles;
-  }, [articulosDisponibles]);
 
   const seleccionarSolicitante = (valor: string) => {
     setSolicitante(valor);
@@ -175,7 +171,6 @@ export default function HHSalidaPage() {
 
   const buscarPrimerArticulo = async () => {
     const texto = busquedaArticulo.trim();
-
     if (!texto) return;
 
     try {
@@ -212,14 +207,13 @@ export default function HHSalidaPage() {
         return;
       }
 
-      const encontrado = articulosFiltrados[0];
-
-      if (encontrado) {
-        seleccionarArticulo(encontrado);
-      } else {
-        setArticuloSeleccionado(null);
-        alert("No se encontró ningún artículo con ese código.");
+      if (articulosDisponibles.length > 0) {
+        seleccionarArticulo(articulosDisponibles[0]);
+        return;
       }
+
+      setArticuloSeleccionado(null);
+      alert("No se encontró ningún artículo con ese código.");
     } finally {
       setCargandoArticulos(false);
     }
@@ -290,7 +284,7 @@ export default function HHSalidaPage() {
       )
       .gt("existencia", 0)
       .order("nombre", { ascending: true })
-      .limit(30);
+      .limit(50);
 
     if (error) {
       console.error("Error recargando artículos HH:", error);
@@ -339,6 +333,7 @@ export default function HHSalidaPage() {
 
       const resultado = data?.[0];
       const folio = resultado?.out_folio ?? resultado?.folio ?? null;
+
       setFolioSalida(folio);
 
       const folioFormateado = formatearFolioSalida(folio);
@@ -354,6 +349,7 @@ export default function HHSalidaPage() {
       setArea("");
       setLineas([]);
       limpiarCapturaArticulo();
+
       await recargarArticulos();
     } finally {
       setGuardando(false);
@@ -406,6 +402,7 @@ export default function HHSalidaPage() {
                   if (solicitanteBlurTimeout.current) {
                     clearTimeout(solicitanteBlurTimeout.current);
                   }
+
                   setMostrarSolicitantes(true);
                 }}
                 onBlur={() => {
@@ -467,6 +464,7 @@ export default function HHSalidaPage() {
                   if (areaBlurTimeout.current) {
                     clearTimeout(areaBlurTimeout.current);
                   }
+
                   setMostrarAreas(true);
                 }}
                 onBlur={() => {
@@ -546,7 +544,7 @@ export default function HHSalidaPage() {
                   buscarPrimerArticulo();
                 }
               }}
-              placeholder="Escanea o escribe código"
+              placeholder="Escanea o escribe código, nombre o ubicación"
               className="min-h-[58px] w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 text-base text-[#111111] outline-none"
             />
 
@@ -572,12 +570,12 @@ export default function HHSalidaPage() {
                   <div className="px-4 py-4 text-sm text-[#5f6b73]">
                     Cargando artículos...
                   </div>
-                ) : articulosFiltrados.length === 0 ? (
+                ) : articulosDisponibles.length === 0 ? (
                   <div className="px-4 py-4 text-sm text-[#5f6b73]">
                     No se encontraron artículos.
                   </div>
                 ) : (
-                  articulosFiltrados.map((articulo) => (
+                  articulosDisponibles.map((articulo) => (
                     <button
                       key={articulo.id}
                       type="button"
@@ -595,12 +593,18 @@ export default function HHSalidaPage() {
                           </p>
 
                           <p className="mt-1 text-sm text-[#5f6b73]">
-                            {articulo.descripcion}
+                            {articulo.descripcion || "-"}
                           </p>
 
-                          <p className="mt-2 inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
-                            {articulo.ubicacion || "SIN UBICACIÓN"}
-                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
+                              {articulo.tipo || "SIN TIPO"}
+                            </span>
+
+                            <span className="inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
+                              {articulo.ubicacion || "SIN UBICACIÓN"}
+                            </span>
+                          </div>
                         </div>
 
                         <div className="text-right">
@@ -621,7 +625,7 @@ export default function HHSalidaPage() {
         {articuloSeleccionado && (
           <div className="rounded-3xl bg-white p-5 shadow-md">
             <p className="text-sm font-semibold text-[#264f63]">
-              {articuloSeleccionado.codigo_barras || ""}
+              {articuloSeleccionado.codigo_barras || "SIN-CODIGO"}
             </p>
 
             <h2 className="mt-1 text-2xl font-bold text-[#111111]">
@@ -629,12 +633,18 @@ export default function HHSalidaPage() {
             </h2>
 
             <p className="mt-2 text-sm leading-relaxed text-[#5f6b73]">
-              {articuloSeleccionado.descripcion}
+              {articuloSeleccionado.descripcion || "-"}
             </p>
 
-            <p className="mt-2 inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
-              {articuloSeleccionado.ubicacion || "SIN UBICACIÓN"}
-            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <span className="inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
+                {articuloSeleccionado.tipo || "SIN TIPO"}
+              </span>
+
+              <span className="inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
+                {articuloSeleccionado.ubicacion || "SIN UBICACIÓN"}
+              </span>
+            </div>
 
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="rounded-2xl bg-[#f7f8fa] p-4">
@@ -705,18 +715,24 @@ export default function HHSalidaPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-semibold text-[#264f63]">
-                        {linea.codigo}
+                        {linea.codigo || "SIN-CODIGO"}
                       </p>
 
                       <p className="mt-1 text-base font-semibold text-[#111111]">
                         {linea.nombre}
                       </p>
 
-                      <p className="mt-1 text-xs font-semibold text-[#264f63]">
-                        {linea.ubicacion || "SIN UBICACIÓN"}
-                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span className="inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
+                          {linea.tipo || "SIN TIPO"}
+                        </span>
 
-                      <p className="mt-1 text-sm text-[#5f6b73]">
+                        <span className="inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
+                          {linea.ubicacion || "SIN UBICACIÓN"}
+                        </span>
+                      </div>
+
+                      <p className="mt-2 text-sm text-[#5f6b73]">
                         Cantidad: {linea.cantidadSalida} · Nueva:{" "}
                         {linea.cantidadNueva}
                       </p>
