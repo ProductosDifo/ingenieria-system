@@ -17,6 +17,7 @@ type Registro = {
   nombre: string;
   descripcion: string | null;
   tipo: string | null;
+  ubicacion: string | null;
   cantidad_original: number;
   cantidad_devuelta: number;
   cantidad_pendiente: number;
@@ -57,7 +58,7 @@ export default function RegistrarDevolucionPage() {
         return;
       }
 
-      setRegistros(data || []);
+      setRegistros((data || []) as Registro[]);
     }, 250);
 
     return () => clearTimeout(timer);
@@ -70,7 +71,9 @@ export default function RegistrarDevolucionPage() {
   const seleccionarRegistro = (registro: Registro) => {
     setRegistroSeleccionado(registro);
     setBusqueda(
-      `${formatearFolioSalida(registro.folio)} - ${registro.codigo_barras || ""} - ${registro.nombre}`
+      `${formatearFolioSalida(registro.folio)} - ${
+        registro.codigo_barras || ""
+      } - ${registro.nombre}`
     );
     setCantidadDevolver("");
     setObservaciones("");
@@ -88,7 +91,7 @@ export default function RegistrarDevolucionPage() {
       return;
     }
 
-    setRegistros(data || []);
+    setRegistros((data || []) as Registro[]);
   };
 
   const handleRegistrarDevolucion = async () => {
@@ -214,11 +217,22 @@ export default function RegistrarDevolucionPage() {
                           <div className="flex items-start justify-between gap-4">
                             <div>
                               <p className="font-semibold text-[#264f63]">
-                                {formatearFolioSalida(registro.folio)} · {registro.codigo_barras || "SIN-CODIGO"}
+                                {formatearFolioSalida(registro.folio)} ·{" "}
+                                {registro.codigo_barras || "SIN-CODIGO"}
                               </p>
-                              <p className="text-sm text-[#111111]">{registro.nombre}</p>
+
+                              <p className="text-sm text-[#111111]">
+                                {registro.nombre}
+                              </p>
+
                               <p className="mt-1 text-xs text-[#5f6b73]">
-                                {registro.solicitante} · {registro.ticket || "Sin ticket"} · {registro.area}
+                                {registro.solicitante} ·{" "}
+                                {registro.ticket || "Sin ticket"} ·{" "}
+                                {registro.area}
+                              </p>
+
+                              <p className="mt-2 inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
+                                {registro.ubicacion || "SIN UBICACIÓN"}
                               </p>
                             </div>
 
@@ -258,47 +272,106 @@ export default function RegistrarDevolucionPage() {
                 <>
                   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-[#111111]">Folio</label>
+                      <label className="mb-2 block text-sm font-semibold text-[#111111]">
+                        Folio
+                      </label>
                       <input
                         readOnly
-                        value={formatearFolioSalida(registroSeleccionado.folio)}
+                        value={formatearFolioSalida(
+                          registroSeleccionado.folio
+                        )}
                         className="w-full rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-3 outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-[#111111]">Ticket</label>
-                      <input readOnly value={registroSeleccionado.ticket || ""} className="w-full rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-3 outline-none" />
+                      <label className="mb-2 block text-sm font-semibold text-[#111111]">
+                        Ticket
+                      </label>
+                      <input
+                        readOnly
+                        value={registroSeleccionado.ticket || ""}
+                        className="w-full rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-3 outline-none"
+                      />
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-[#111111]">Solicitante</label>
-                      <input readOnly value={registroSeleccionado.solicitante} className="w-full rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-3 outline-none" />
+                      <label className="mb-2 block text-sm font-semibold text-[#111111]">
+                        Solicitante
+                      </label>
+                      <input
+                        readOnly
+                        value={registroSeleccionado.solicitante}
+                        className="w-full rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-3 outline-none"
+                      />
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-[#111111]">Área</label>
-                      <input readOnly value={registroSeleccionado.area} className="w-full rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-3 outline-none" />
+                      <label className="mb-2 block text-sm font-semibold text-[#111111]">
+                        Área
+                      </label>
+                      <input
+                        readOnly
+                        value={registroSeleccionado.area}
+                        className="w-full rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-3 outline-none"
+                      />
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-[#111111]">Código</label>
-                      <input readOnly value={registroSeleccionado.codigo_barras || ""} className="w-full rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-3 outline-none" />
+                      <label className="mb-2 block text-sm font-semibold text-[#111111]">
+                        Código
+                      </label>
+                      <input
+                        readOnly
+                        value={registroSeleccionado.codigo_barras || ""}
+                        className="w-full rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-3 outline-none"
+                      />
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-[#111111]">Nombre</label>
-                      <input readOnly value={registroSeleccionado.nombre} className="w-full rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-3 outline-none" />
+                      <label className="mb-2 block text-sm font-semibold text-[#111111]">
+                        Nombre
+                      </label>
+                      <input
+                        readOnly
+                        value={registroSeleccionado.nombre}
+                        className="w-full rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-3 outline-none"
+                      />
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-[#111111]">Tipo artículo</label>
-                      <input readOnly value={registroSeleccionado.tipo || ""} className="w-full rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-3 outline-none" />
+                      <label className="mb-2 block text-sm font-semibold text-[#111111]">
+                        Tipo artículo
+                      </label>
+                      <input
+                        readOnly
+                        value={registroSeleccionado.tipo || ""}
+                        className="w-full rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-3 outline-none"
+                      />
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-[#111111]">Fecha original</label>
-                      <input readOnly value={new Date(registroSeleccionado.fecha).toLocaleString("es-MX")} className="w-full rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-3 outline-none" />
+                      <label className="mb-2 block text-sm font-semibold text-[#111111]">
+                        Ubicación
+                      </label>
+                      <input
+                        readOnly
+                        value={registroSeleccionado.ubicacion || ""}
+                        className="w-full rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-3 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-[#111111]">
+                        Fecha original
+                      </label>
+                      <input
+                        readOnly
+                        value={new Date(
+                          registroSeleccionado.fecha
+                        ).toLocaleString("es-MX")}
+                        className="w-full rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-3 outline-none"
+                      />
                     </div>
                   </div>
 
@@ -333,8 +406,12 @@ export default function RegistrarDevolucionPage() {
                 <h2 className="text-xl font-bold text-[#111111]">
                   Registrar devolución
                 </h2>
+
                 <div className="rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-2 text-sm font-semibold text-[#264f63]">
-                  Folio devolución: {folioDevolucion !== null ? formatearFolioDevolucion(folioDevolucion) : "-"}
+                  Folio devolución:{" "}
+                  {folioDevolucion !== null
+                    ? formatearFolioDevolucion(folioDevolucion)
+                    : "-"}
                 </div>
               </div>
 

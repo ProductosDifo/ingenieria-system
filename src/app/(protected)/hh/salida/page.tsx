@@ -18,6 +18,7 @@ type Articulo = {
   nombre: string;
   descripcion: string | null;
   tipo: TipoArticulo | null;
+  ubicacion: string | null;
   existencia: number;
 };
 
@@ -27,6 +28,7 @@ type LineaSalida = {
   nombre: string;
   descripcion: string;
   tipo: string;
+  ubicacion: string;
   cantidadActual: number;
   cantidadSalida: number;
   cantidadNueva: number;
@@ -95,7 +97,9 @@ export default function HHSalidaPage() {
 
         let query = supabase
           .from("articulos")
-          .select("id, codigo_barras, nombre, descripcion, tipo, existencia")
+          .select(
+            "id, codigo_barras, nombre, descripcion, tipo, ubicacion, existencia"
+          )
           .gt("existencia", 0)
           .order("nombre", { ascending: true })
           .limit(30);
@@ -104,7 +108,7 @@ export default function HHSalidaPage() {
 
         if (texto) {
           query = query.or(
-            `codigo_barras.ilike.%${texto}%,nombre.ilike.%${texto}%,descripcion.ilike.%${texto}%,tipo.ilike.%${texto}%`
+            `codigo_barras.ilike.%${texto}%,nombre.ilike.%${texto}%,descripcion.ilike.%${texto}%,tipo.ilike.%${texto}%,ubicacion.ilike.%${texto}%`
           );
         }
 
@@ -181,10 +185,12 @@ export default function HHSalidaPage() {
 
       const { data, error } = await supabase
         .from("articulos")
-        .select("id, codigo_barras, nombre, descripcion, tipo, existencia")
+        .select(
+          "id, codigo_barras, nombre, descripcion, tipo, ubicacion, existencia"
+        )
         .eq("codigo_barras", codigoLimpio)
         .gt("existencia", 0)
-        .maybeSingle();
+        .order("ubicacion", { ascending: true });
 
       if (error) {
         console.error("Error buscando artículo exacto HH:", error);
@@ -192,8 +198,17 @@ export default function HHSalidaPage() {
         return;
       }
 
-      if (data) {
-        seleccionarArticulo(data as Articulo);
+      if (data && data.length > 0) {
+        const articulosEncontrados = data as Articulo[];
+
+        if (articulosEncontrados.length === 1) {
+          seleccionarArticulo(articulosEncontrados[0]);
+          return;
+        }
+
+        setArticuloSeleccionado(null);
+        setArticulos(articulosEncontrados);
+        setMostrarArticulos(true);
         return;
       }
 
@@ -253,6 +268,7 @@ export default function HHSalidaPage() {
       nombre: articuloSeleccionado.nombre,
       descripcion: articuloSeleccionado.descripcion || "",
       tipo: articuloSeleccionado.tipo || "",
+      ubicacion: articuloSeleccionado.ubicacion || "",
       cantidadActual: articuloSeleccionado.existencia,
       cantidadSalida: cantidad,
       cantidadNueva: articuloSeleccionado.existencia - cantidad,
@@ -269,7 +285,9 @@ export default function HHSalidaPage() {
   const recargarArticulos = async () => {
     const { data, error } = await supabase
       .from("articulos")
-      .select("id, codigo_barras, nombre, descripcion, tipo, existencia")
+      .select(
+        "id, codigo_barras, nombre, descripcion, tipo, ubicacion, existencia"
+      )
       .gt("existencia", 0)
       .order("nombre", { ascending: true })
       .limit(30);
@@ -571,11 +589,17 @@ export default function HHSalidaPage() {
                           <p className="font-semibold text-[#264f63]">
                             {articulo.codigo_barras || "SIN-CODIGO"}
                           </p>
+
                           <p className="mt-1 text-base font-semibold text-[#111111]">
                             {articulo.nombre}
                           </p>
+
                           <p className="mt-1 text-sm text-[#5f6b73]">
                             {articulo.descripcion}
+                          </p>
+
+                          <p className="mt-2 inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
+                            {articulo.ubicacion || "SIN UBICACIÓN"}
                           </p>
                         </div>
 
@@ -599,11 +623,17 @@ export default function HHSalidaPage() {
             <p className="text-sm font-semibold text-[#264f63]">
               {articuloSeleccionado.codigo_barras || ""}
             </p>
+
             <h2 className="mt-1 text-2xl font-bold text-[#111111]">
               {articuloSeleccionado.nombre}
             </h2>
+
             <p className="mt-2 text-sm leading-relaxed text-[#5f6b73]">
               {articuloSeleccionado.descripcion}
+            </p>
+
+            <p className="mt-2 inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
+              {articuloSeleccionado.ubicacion || "SIN UBICACIÓN"}
             </p>
 
             <div className="mt-4 grid grid-cols-2 gap-3">
@@ -677,9 +707,15 @@ export default function HHSalidaPage() {
                       <p className="font-semibold text-[#264f63]">
                         {linea.codigo}
                       </p>
+
                       <p className="mt-1 text-base font-semibold text-[#111111]">
                         {linea.nombre}
                       </p>
+
+                      <p className="mt-1 text-xs font-semibold text-[#264f63]">
+                        {linea.ubicacion || "SIN UBICACIÓN"}
+                      </p>
+
                       <p className="mt-1 text-sm text-[#5f6b73]">
                         Cantidad: {linea.cantidadSalida} · Nueva:{" "}
                         {linea.cantidadNueva}

@@ -10,6 +10,7 @@ type Articulo = {
   nombre: string;
   descripcion: string | null;
   tipo: string | null;
+  ubicacion: string | null;
   existencia: number | null;
   costo_unitario: number | null;
 };
@@ -20,6 +21,7 @@ type LineaSalida = {
   nombre: string;
   descripcion: string;
   tipo: string;
+  ubicacion: string;
   cantidadActual: number;
   costoUnitario: number;
   cantidadSalida: number;
@@ -82,8 +84,9 @@ export default function RegistrarSalidaPage() {
       const { data, error } = await supabase
         .from("articulos")
         .select(
-          "id, codigo_barras, nombre, descripcion, tipo, existencia, costo_unitario"
+          "id, codigo_barras, nombre, descripcion, tipo, ubicacion, existencia, costo_unitario"
         )
+        .gt("existencia", 0)
         .order("nombre", { ascending: true });
 
       if (error) {
@@ -107,6 +110,7 @@ export default function RegistrarSalidaPage() {
   const solicitantesFiltrados = useMemo(() => {
     const query = solicitante.trim().toLowerCase();
     if (!query) return solicitantesMock;
+
     return solicitantesMock.filter((item) =>
       item.toLowerCase().includes(query)
     );
@@ -115,6 +119,7 @@ export default function RegistrarSalidaPage() {
   const areasFiltradas = useMemo(() => {
     const query = area.trim().toLowerCase();
     if (!query) return areasMock;
+
     return areasMock.filter((item) => item.toLowerCase().includes(query));
   }, [area]);
 
@@ -127,7 +132,8 @@ export default function RegistrarSalidaPage() {
         (articulo.codigo_barras || "").toLowerCase().includes(query) ||
         articulo.nombre.toLowerCase().includes(query) ||
         (articulo.descripcion || "").toLowerCase().includes(query) ||
-        (articulo.tipo || "").toLowerCase().includes(query)
+        (articulo.tipo || "").toLowerCase().includes(query) ||
+        (articulo.ubicacion || "").toLowerCase().includes(query)
       );
     });
   }, [busquedaArticulo, articulosDisponibles]);
@@ -200,6 +206,7 @@ export default function RegistrarSalidaPage() {
       nombre: articuloSeleccionado.nombre,
       descripcion: articuloSeleccionado.descripcion || "",
       tipo: articuloSeleccionado.tipo || "",
+      ubicacion: articuloSeleccionado.ubicacion || "",
       cantidadActual,
       costoUnitario,
       cantidadSalida: cantidad,
@@ -213,6 +220,23 @@ export default function RegistrarSalidaPage() {
 
   const handleEliminarLinea = (articuloId: number) => {
     setLineas((prev) => prev.filter((linea) => linea.articuloId !== articuloId));
+  };
+
+  const recargarArticulos = async () => {
+    const { data, error } = await supabase
+      .from("articulos")
+      .select(
+        "id, codigo_barras, nombre, descripcion, tipo, ubicacion, existencia, costo_unitario"
+      )
+      .gt("existencia", 0)
+      .order("nombre", { ascending: true });
+
+    if (error) {
+      console.error("Error recargando artículos:", error);
+      return;
+    }
+
+    setArticulos(data || []);
   };
 
   const handleRegistrarSalida = async () => {
@@ -236,9 +260,9 @@ export default function RegistrarSalidaPage() {
       setFolioGenerado(null);
 
       const { data, error } = await supabase.rpc("registrar_salida", {
-        p_solicitante: solicitante,
-        p_ticket: ticket,
-        p_area: area,
+        p_solicitante: solicitante.trim(),
+        p_ticket: ticket.trim() || null,
+        p_area: area.trim(),
         p_lineas: lineas.map((linea) => ({
           articuloId: linea.articuloId,
           cantidadSalida: linea.cantidadSalida,
@@ -252,13 +276,18 @@ export default function RegistrarSalidaPage() {
       }
 
       const resultado = data?.[0];
-      const folio = resultado?.out_folio ?? null;
+      const folio = resultado?.out_folio ?? resultado?.folio ?? null;
 
       setFolioGenerado(folio);
 
       const folioFormateado =
         folio !== null ? `SAL-${String(folio).padStart(3, "0")}` : "";
-      alert(`Salida registrada correctamente. Folio: ${folioFormateado}`);
+
+      alert(
+        folioFormateado
+          ? `Salida registrada correctamente. Folio: ${folioFormateado}`
+          : "Salida registrada correctamente."
+      );
 
       setSolicitante("");
       setTicket("");
@@ -267,16 +296,7 @@ export default function RegistrarSalidaPage() {
       limpiarCapturaArticulo();
       setFecha(new Date().toLocaleString("es-MX"));
 
-      const { data: nuevosArticulos, error: errorRecarga } = await supabase
-        .from("articulos")
-        .select(
-          "id, codigo_barras, nombre, descripcion, tipo, existencia, costo_unitario"
-        )
-        .order("nombre", { ascending: true });
-
-      if (!errorRecarga) {
-        setArticulos(nuevosArticulos || []);
-      }
+      await recargarArticulos();
     } finally {
       setGuardando(false);
     }
@@ -372,7 +392,7 @@ export default function RegistrarSalidaPage() {
                     type="text"
                     value={ticket}
                     onChange={(e) => setTicket(e.target.value)}
-                    placeholder="Número de ticket (opcional)"
+                    placeholder="Número de ticket opcional"
                     className="w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 py-3 text-[#111111] outline-none"
                   />
                 </div>
@@ -460,6 +480,7 @@ export default function RegistrarSalidaPage() {
                   onChange={(e) => {
                     setBusquedaArticulo(e.target.value);
                     setMostrarArticulos(true);
+
                     if (articuloSeleccionado) {
                       setArticuloSeleccionado(null);
                     }
@@ -468,6 +489,7 @@ export default function RegistrarSalidaPage() {
                     if (articuloBlurTimeout.current) {
                       clearTimeout(articuloBlurTimeout.current);
                     }
+
                     setMostrarArticulos(true);
                   }}
                   onBlur={() => {
@@ -475,7 +497,7 @@ export default function RegistrarSalidaPage() {
                       setMostrarArticulos(false);
                     }, 150);
                   }}
-                  placeholder="Escribe código o nombre"
+                  placeholder="Escribe código, nombre o ubicación"
                   className="w-full rounded-2xl border border-[#cfd4d8] bg-white px-4 py-3 outline-none"
                 />
 
@@ -496,18 +518,27 @@ export default function RegistrarSalidaPage() {
                           <div className="flex items-start justify-between gap-4">
                             <div>
                               <p className="font-semibold text-[#264f63]">
-                                {articulo.codigo_barras || "SIN-CODIGO"} · {articulo.nombre}
+                                {articulo.codigo_barras || "SIN-CODIGO"} ·{" "}
+                                {articulo.nombre}
                               </p>
+
                               <p className="text-sm text-[#111111]">
                                 {articulo.descripcion || "-"}
                               </p>
+
                               <p className="mt-1 text-xs text-[#5f6b73]">
                                 Tipo: {articulo.tipo || "-"}
+                              </p>
+
+                              <p className="mt-2 inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
+                                {articulo.ubicacion || "SIN UBICACIÓN"}
                               </p>
                             </div>
 
                             <div className="text-right">
-                              <p className="text-xs text-[#5f6b73]">Existencia</p>
+                              <p className="text-xs text-[#5f6b73]">
+                                Existencia
+                              </p>
                               <p className="text-sm font-semibold text-[#111111]">
                                 {articulo.existencia || 0}
                               </p>
@@ -559,6 +590,18 @@ export default function RegistrarSalidaPage() {
 
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-[#111111]">
+                    Ubicación
+                  </label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={articuloSeleccionado?.ubicacion ?? ""}
+                    className="w-full rounded-2xl border border-[#cfd4d8] bg-[#f7f8fa] px-4 py-3 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-[#111111]">
                     Cantidad actual
                   </label>
                   <input
@@ -599,6 +642,7 @@ export default function RegistrarSalidaPage() {
                 <h2 className="text-xl font-bold text-[#111111]">
                   Detalle de salida
                 </h2>
+
                 <button
                   onClick={handleRegistrarSalida}
                   disabled={guardando}
@@ -616,6 +660,7 @@ export default function RegistrarSalidaPage() {
                       <th className="px-4 py-2">Nombre</th>
                       <th className="px-4 py-2">Descripción</th>
                       <th className="px-4 py-2">Tipo</th>
+                      <th className="px-4 py-2">Ubicación</th>
                       <th className="px-4 py-2">Cantidad actual</th>
                       <th className="px-4 py-2">Costo unitario</th>
                       <th className="px-4 py-2">Cantidad a retirar</th>
@@ -629,7 +674,7 @@ export default function RegistrarSalidaPage() {
                     {lineas.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={10}
+                          colSpan={11}
                           className="rounded-2xl bg-[#f7f8fa] px-4 py-6 text-center text-sm text-[#5f6b73]"
                         >
                           No hay artículos agregados a la salida.
@@ -654,6 +699,10 @@ export default function RegistrarSalidaPage() {
                             {linea.tipo}
                           </td>
 
+                          <td className="px-4 py-4 text-sm font-semibold text-[#264f63]">
+                            {linea.ubicacion || "SIN UBICACIÓN"}
+                          </td>
+
                           <td className="px-4 py-4 text-sm text-[#111111]">
                             {linea.cantidadActual}
                           </td>
@@ -674,7 +723,9 @@ export default function RegistrarSalidaPage() {
 
                           <td className="px-4 py-4">
                             <button
-                              onClick={() => handleEliminarLinea(linea.articuloId)}
+                              onClick={() =>
+                                handleEliminarLinea(linea.articuloId)
+                              }
                               className="rounded-xl border border-[#cfd4d8] px-3 py-2 text-sm font-semibold text-[#264f63] transition hover:bg-[#eef2f4]"
                             >
                               Eliminar

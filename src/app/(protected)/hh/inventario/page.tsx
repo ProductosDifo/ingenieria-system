@@ -10,6 +10,7 @@ type InventarioItem = {
   nombre: string;
   descripcion: string | null;
   tipo: string | null;
+  ubicacion: string | null;
   existencia: number | null;
   costo_unitario: number | null;
   valor_fisico: number | null;
@@ -34,7 +35,6 @@ export default function HHInventarioPage() {
     inputRef.current?.focus();
   }, []);
 
-  // 🔴 BLOQUEAMOS búsqueda automática si ya hay artículo seleccionado
   useEffect(() => {
     if (seleccionado) return;
 
@@ -45,7 +45,7 @@ export default function HHInventarioPage() {
         let query = supabase
           .from("articulos")
           .select(
-            "id, codigo_barras, nombre, descripcion, tipo, existencia, costo_unitario, valor_fisico"
+            "id, codigo_barras, nombre, descripcion, tipo, ubicacion, existencia, costo_unitario, valor_fisico"
           )
           .order("nombre", { ascending: true })
           .limit(10);
@@ -54,7 +54,7 @@ export default function HHInventarioPage() {
 
         if (texto) {
           query = query.or(
-            `codigo_barras.ilike.%${texto}%,nombre.ilike.%${texto}%,descripcion.ilike.%${texto}%,tipo.ilike.%${texto}%`
+            `codigo_barras.ilike.%${texto}%,nombre.ilike.%${texto}%,descripcion.ilike.%${texto}%,tipo.ilike.%${texto}%,ubicacion.ilike.%${texto}%`
           );
         }
 
@@ -88,10 +88,10 @@ export default function HHInventarioPage() {
       const { data, error } = await supabase
         .from("articulos")
         .select(
-          "id, codigo_barras, nombre, descripcion, tipo, existencia, costo_unitario, valor_fisico"
+          "id, codigo_barras, nombre, descripcion, tipo, ubicacion, existencia, costo_unitario, valor_fisico"
         )
         .eq("codigo_barras", codigoLimpio)
-        .maybeSingle();
+        .order("ubicacion", { ascending: true });
 
       if (error) {
         console.error("Error buscando artículo exacto:", error);
@@ -99,14 +99,22 @@ export default function HHInventarioPage() {
         return;
       }
 
-      if (data) {
-        const articulo = data as InventarioItem;
+      if (data && data.length > 0) {
+        const articulos = data as InventarioItem[];
 
-        setSeleccionado(articulo);
-        setBusqueda(
-          `${articulo.codigo_barras || "SIN-CODIGO"} - ${articulo.nombre}`
-        );
-        setResultados([articulo]);
+        if (articulos.length === 1) {
+          const articulo = articulos[0];
+
+          setSeleccionado(articulo);
+          setBusqueda(
+            `${articulo.codigo_barras || "SIN-CODIGO"} - ${articulo.nombre}`
+          );
+          setResultados([articulo]);
+          return;
+        }
+
+        setSeleccionado(null);
+        setResultados(articulos);
         return;
       }
 
@@ -129,6 +137,7 @@ export default function HHInventarioPage() {
   const seleccionarItem = (item: InventarioItem) => {
     setSeleccionado(item);
     setBusqueda(`${item.codigo_barras || "SIN-CODIGO"} - ${item.nombre}`);
+    setResultados([item]);
   };
 
   const limpiar = () => {
@@ -173,7 +182,10 @@ export default function HHInventarioPage() {
               value={busqueda}
               onChange={(e) => {
                 setBusqueda(e.target.value);
-                if (seleccionado) setSeleccionado(null);
+                if (seleccionado) {
+                  setSeleccionado(null);
+                  setResultados([]);
+                }
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -233,11 +245,21 @@ export default function HHInventarioPage() {
                     <p className="font-semibold text-[#264f63]">
                       {item.codigo_barras || "SIN-CODIGO"}
                     </p>
+
                     <p className="mt-1 text-base font-semibold text-[#111111]">
                       {item.nombre}
                     </p>
+
                     <p className="mt-1 text-sm text-[#5f6b73]">
                       {item.descripcion}
+                    </p>
+
+                    <p className="mt-2 inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
+                      {item.ubicacion || "SIN UBICACIÓN"}
+                    </p>
+
+                    <p className="mt-2 text-sm font-semibold text-[#111111]">
+                      Existencia: {Number(item.existencia || 0)}
                     </p>
                   </button>
                 ))
@@ -251,15 +273,38 @@ export default function HHInventarioPage() {
             <p className="text-sm font-semibold text-[#264f63]">
               {seleccionado.codigo_barras || "SIN-CODIGO"}
             </p>
+
             <h2 className="mt-1 text-2xl font-bold text-[#111111]">
               {seleccionado.nombre}
             </h2>
 
+            <p className="mt-2 text-sm leading-relaxed text-[#5f6b73]">
+              {seleccionado.descripcion}
+            </p>
+
+            <p className="mt-2 inline-flex rounded-full bg-[#e7ecef] px-3 py-1 text-xs font-semibold text-[#264f63]">
+              {seleccionado.ubicacion || "SIN UBICACIÓN"}
+            </p>
+
             <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-[#f7f8fa] p-4">
+                <p className="text-xs text-[#5f6b73]">Tipo</p>
+                <p className="mt-2 text-base font-bold text-[#111111]">
+                  {seleccionado.tipo || ""}
+                </p>
+              </div>
+
               <div className="rounded-2xl bg-[#f7f8fa] p-4">
                 <p className="text-xs text-[#5f6b73]">Existencia</p>
                 <p className="mt-2 text-2xl font-bold text-[#264f63]">
                   {existencia}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-[#f7f8fa] p-4">
+                <p className="text-xs text-[#5f6b73]">Costo unitario</p>
+                <p className="mt-2 text-base font-bold text-[#111111]">
+                  {formatCurrency(costoUnitario)}
                 </p>
               </div>
 
@@ -274,8 +319,17 @@ export default function HHInventarioPage() {
         )}
 
         <div className="grid grid-cols-2 gap-3 pt-2">
-          <Link href="/hh" className="btn">Menú HH</Link>
-          <Link href="/hh/salida" className="btn-primary">
+          <Link
+            href="/hh"
+            className="rounded-2xl border border-[#cfd4d8] bg-white px-4 py-4 text-center text-base font-semibold text-[#264f63] shadow-sm"
+          >
+            Menú HH
+          </Link>
+
+          <Link
+            href="/hh/salida"
+            className="rounded-2xl bg-[#264f63] px-4 py-4 text-center text-base font-semibold text-white shadow-sm"
+          >
             Ir a salidas
           </Link>
         </div>

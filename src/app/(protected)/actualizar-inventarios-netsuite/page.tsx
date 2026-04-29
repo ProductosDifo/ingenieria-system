@@ -231,7 +231,7 @@ export default function ActualizarInventariosNetSuitePage() {
       );
 
       const erroresValidacion: string[] = [];
-      const codigosBarras = new Set<string>();
+      const clavesInventario = new Set<string>();
 
       filasParseadas.forEach((fila, index) => {
         const numeroFila = index + 2;
@@ -257,13 +257,19 @@ export default function ActualizarInventariosNetSuitePage() {
         }
 
         const codigoNormalizado = fila.codigoBarras.trim().toUpperCase();
+        const ubicacionNormalizada = fila.ubicacion.trim().toUpperCase();
+        const claveInventario = `${codigoNormalizado}__${ubicacionNormalizada}`;
 
-        if (codigoNormalizado && codigosBarras.has(codigoNormalizado)) {
+        if (
+          codigoNormalizado &&
+          ubicacionNormalizada &&
+          clavesInventario.has(claveInventario)
+        ) {
           erroresValidacion.push(
-            `Fila ${numeroFila}: código de barras duplicado (${fila.codigoBarras}).`
+            `Fila ${numeroFila}: artículo duplicado en la misma ubicación (${fila.codigoBarras} - ${fila.ubicacion}).`
           );
         } else {
-          codigosBarras.add(codigoNormalizado);
+          clavesInventario.add(claveInventario);
         }
       });
 
@@ -321,7 +327,7 @@ export default function ActualizarInventariosNetSuitePage() {
       const { data: eliminadosData, error: eliminarError } = await supabase
         .from("articulos")
         .delete()
-        .gte("id", 0)
+        .neq("id", -1)
         .select("id");
 
       if (eliminarError) {
@@ -373,8 +379,8 @@ export default function ActualizarInventariosNetSuitePage() {
               Actualizar inventarios con NetSuite
             </h1>
             <p className="mt-1 text-sm text-[#5f6b73]">
-              Importa el archivo de NetSuite para reemplazar el inventario vigente
-              del sistema.
+              Importa el archivo de NetSuite para reemplazar el inventario
+              vigente del sistema.
             </p>
           </header>
 
@@ -506,7 +512,8 @@ export default function ActualizarInventariosNetSuitePage() {
                   Vista previa del archivo
                 </h2>
                 <p className="mt-1 text-sm text-[#5f6b73]">
-                  Revisa los datos antes de reemplazar el inventario del sistema.
+                  Revisa los datos antes de reemplazar el inventario del
+                  sistema.
                 </p>
               </div>
 
@@ -539,7 +546,7 @@ export default function ActualizarInventariosNetSuitePage() {
                     ) : (
                       filas.slice(0, 50).map((fila, index) => (
                         <tr
-                          key={`${fila.idInterno}-${fila.codigoBarras}-${index}`}
+                          key={`${fila.idInterno}-${fila.codigoBarras}-${fila.ubicacion}-${index}`}
                           className="bg-[#f7f8fa]"
                         >
                           <td className="rounded-l-2xl px-4 py-4 text-sm font-semibold text-[#264f63]">
