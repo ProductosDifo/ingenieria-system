@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabase";
+import { obtenerUsuarioActual, type UsuarioActual } from "@/lib/usuarioActual";
 
 type ResumenDashboard = {
   salidasDia: number;
@@ -80,6 +81,7 @@ function formatFolioSalida(folio: number) {
 function daysBetween(fecha: string) {
   const hoy = new Date();
   const inicioHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+
   const fechaBase = new Date(fecha);
   const inicioFecha = new Date(
     fechaBase.getFullYear(),
@@ -88,6 +90,7 @@ function daysBetween(fecha: string) {
   );
 
   const diffMs = inicioHoy.getTime() - inicioFecha.getTime();
+
   return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
 }
 
@@ -99,13 +102,27 @@ function getSingleRelation<T>(value: T | T[] | null): T | null {
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+  const [usuarioActual, setUsuarioActual] = useState<UsuarioActual | null>(
+    null
+  );
+
   const [resumen, setResumen] = useState<ResumenDashboard>({
     salidasDia: 0,
     prestamosActivos: 0,
     herramientasPendientes: 0,
     devolucionesDia: 0,
   });
+
   const [prestamos, setPrestamos] = useState<PrestamoActivo[]>([]);
+
+  useEffect(() => {
+    async function cargarUsuarioActual() {
+      const usuario = await obtenerUsuarioActual();
+      setUsuarioActual(usuario);
+    }
+
+    cargarUsuarioActual();
+  }, []);
 
   useEffect(() => {
     async function cargarDashboard() {
@@ -113,6 +130,7 @@ export default function DashboardPage() {
       setErrorMsg("");
 
       const ahora = new Date();
+
       const inicioDia = new Date(
         ahora.getFullYear(),
         ahora.getMonth(),
@@ -122,6 +140,7 @@ export default function DashboardPage() {
         0,
         0
       );
+
       const finDia = new Date(
         ahora.getFullYear(),
         ahora.getMonth(),
@@ -192,12 +211,14 @@ export default function DashboardPage() {
           "Error cargando herramientas activas:",
           herramientasResp.error
         );
+
         setErrorMsg("No se pudo cargar el resumen del dashboard.");
         setLoading(false);
         return;
       }
 
-      const lineasHerramienta = (herramientasResp.data || []) as LineaHerramientaRaw[];
+      const lineasHerramienta =
+        (herramientasResp.data || []) as LineaHerramientaRaw[];
 
       const prestamosActivosRows = lineasHerramienta
         .map((row) => {
@@ -228,7 +249,9 @@ export default function DashboardPage() {
             costoValorFisico: costoUnitario * cantidadPendiente,
           };
         })
-        .filter(Boolean) as (PrestamoActivo & { cantidadPendiente: number })[];
+        .filter(Boolean) as (PrestamoActivo & {
+        cantidadPendiente: number;
+      })[];
 
       setResumen({
         salidasDia: salidasDiaResp.count || 0,
@@ -254,6 +277,7 @@ export default function DashboardPage() {
     return [...prestamos].sort((a, b) => {
       const fechaA = new Date(a.fecha).getTime();
       const fechaB = new Date(b.fecha).getTime();
+
       return fechaA - fechaB;
     });
   }, [prestamos]);
@@ -293,7 +317,10 @@ export default function DashboardPage() {
             </div>
 
             <div className="rounded-2xl bg-[#eef2f4] px-4 py-2 text-sm font-semibold text-[#264f63]">
-              Usuario: Admin
+              Usuario:{" "}
+              {usuarioActual
+                ? `${usuarioActual.nombre} · ${usuarioActual.rol}`
+                : "Sin usuario"}
             </div>
           </header>
 
@@ -351,7 +378,8 @@ export default function DashboardPage() {
                   Resumen de herramientas en préstamo
                 </h3>
                 <p className="mt-1 text-sm text-[#5f6b73]">
-                  Seguimiento de salidas tipo herramienta con devolución pendiente.
+                  Seguimiento de salidas tipo herramienta con devolución
+                  pendiente.
                 </p>
               </div>
 
@@ -364,16 +392,22 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="rounded-2xl bg-[#f7f8fa] p-4">
-                  <p className="text-sm text-[#5f6b73]">Cantidad total pendiente</p>
+                  <p className="text-sm text-[#5f6b73]">
+                    Cantidad total pendiente
+                  </p>
                   <p className="mt-2 text-2xl font-bold text-[#264f63]">
                     {loading ? "..." : totalCantidadPendiente}
                   </p>
                 </div>
 
                 <div className="rounded-2xl bg-[#f7f8fa] p-4">
-                  <p className="text-sm text-[#5f6b73]">Valor físico pendiente</p>
+                  <p className="text-sm text-[#5f6b73]">
+                    Valor físico pendiente
+                  </p>
                   <p className="mt-2 text-2xl font-bold text-[#264f63]">
-                    {loading ? "..." : formatCurrency(totalValorFisicoPendiente)}
+                    {loading
+                      ? "..."
+                      : formatCurrency(totalValorFisicoPendiente)}
                   </p>
                 </div>
               </div>
@@ -441,7 +475,8 @@ export default function DashboardPage() {
 
                           <td className="px-4 py-4">
                             <span className="rounded-full bg-[#264f63] px-3 py-1 text-xs font-semibold text-white">
-                              {item.diasAtraso} {item.diasAtraso === 1 ? "día" : "días"}
+                              {item.diasAtraso}{" "}
+                              {item.diasAtraso === 1 ? "día" : "días"}
                             </span>
                           </td>
 
