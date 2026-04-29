@@ -1,4 +1,3 @@
-Sí, hay que ajustarlo. Te faltaba ubicacion en el type y conviene mejorar el bloqueo de doble clic, trim() en observaciones y lectura robusta del folio.
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
